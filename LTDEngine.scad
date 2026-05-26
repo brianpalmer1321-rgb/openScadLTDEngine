@@ -90,26 +90,32 @@ module support_frame() {
         translate([0, 0, -axle_to_deck + 2.5]) mounting_holes(h_len=50);
     }
 }
-module linkage_rod(length, pin_d=2) {
+module link_end_disc(pin_d, stick_rim_z=-1) {
     fork_thin = pin_d + 1.2;
     disc_r = link_disc_d / 2;
-    color("Silver")
-        translate([0, 0, -length])
-        cylinder(d=1.5, h=length + link_stick_bore_depth, center=false);
-    // Crank end: disc centered on pin (X); stick bore into -Z rim at z = 0 joint
     color("LightGreen") difference() {
         rotate([0, 90, 0])
             cylinder(d=link_disc_d, h=fork_thin, center=true);
         rotate([0, 90, 0])
             cylinder(d=pin_d, h=fork_thin + 2, center=true);
-        translate([0, 0, -disc_r])
-            cylinder(d=link_stick_bore_d, h=disc_r + link_stick_bore_depth, center=false);
+        if (stick_rim_z < 0)
+            translate([0, 0, -disc_r])
+                cylinder(d=link_stick_bore_d, h=disc_r + link_stick_bore_depth, center=false);
+        else
+            mirror([0, 0, 1])
+                translate([0, 0, -disc_r])
+                cylinder(d=link_stick_bore_d, h=disc_r + link_stick_bore_depth, center=false);
     }
-    // Piston / flange end (unchanged — pin along Z at rod tip)
-    color("LightGreen") translate([0, 0, -length]) difference() {
-        cylinder(d=pin_d + 4, h=3, center=true);
-        cylinder(d=pin_d, h=5, center=true);
-    }
+}
+module linkage_rod(length, pin_d=2) {
+    disc_r = link_disc_d / 2;
+    color("Silver")
+        translate([0, 0, -length - disc_r - link_stick_bore_depth])
+        cylinder(d=1.5, h=length + disc_r + 2 * link_stick_bore_depth, center=false);
+    // Crank end: pin along X; stick into -Z rim
+    link_end_disc(pin_d, stick_rim_z=-1);
+    // Piston / flange end: same disc; stick into +Z rim (rod approaches from crank)
+    translate([0, 0, -length]) link_end_disc(pin_d, stick_rim_z=1);
 }
 // collar_outward: +1 or -1, clamp extends away from web sandwich center only
 module crank_arm(radius, pin_d=2, collar_outward=1) {

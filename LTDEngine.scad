@@ -14,7 +14,9 @@ collar_od = 10;
 collar_len = 5;     // grip length on crankshaft for timing adjustment
 link_disc_d = 8;          // crank-end disc diameter (YZ face)
 link_stick_bore_d = 1.65; // clearance for 1.5 mm silver rod
-link_stick_bore_depth = 3;  // how far stick enters disc from the rim
+link_stick_pin_gap = 0.5;  // silver stick stops this far beyond pin hole OD (radial in disc)
+// Rim → pin: reach into disc from outer edge (replaces fixed link_stick_bore_depth)
+function link_stick_reach(pin_d) = link_disc_d / 2 - pin_d / 2 - link_stick_pin_gap;
 clevis_tab_x = 2;           // fork tab thickness along pin axis (rod_flange / piston clevis)
 clevis_tab_center_x = 3;    // tab center offset from flange axis
 clevis_pin_len = 2 * (clevis_tab_center_x + clevis_tab_x / 2); // pin span = outer tab faces
@@ -181,26 +183,32 @@ module clevis_boss_round_top(x, z, tab_h, tab_x = 2) {
 module link_end_disc(pin_d, stick_rim_z=-1) {
     fork_thin = pin_d + 1.2;
     disc_r = link_disc_d / 2;
+    stick_reach = link_stick_reach(pin_d);
     color("LightGreen") difference() {
         rotate([0, 90, 0])
             cylinder(d=link_disc_d, h=fork_thin, center=true);
         rotate([0, 90, 0])
             cylinder(d=pin_d, h=fork_thin + 2, center=true);
-        if (stick_rim_z < 0)
-            translate([0, 0, -disc_r])
-                cylinder(d=link_stick_bore_d, h=disc_r + link_stick_bore_depth, center=false);
-        else
-            mirror([0, 0, 1])
+        if (stick_reach > 0)
+            if (stick_rim_z < 0)
                 translate([0, 0, -disc_r])
-                cylinder(d=link_stick_bore_d, h=disc_r + link_stick_bore_depth, center=false);
+                    cylinder(d=link_stick_bore_d, h=stick_reach, center=false);
+            else
+                mirror([0, 0, 1])
+                    translate([0, 0, -disc_r])
+                        cylinder(d=link_stick_bore_d, h=stick_reach, center=false);
     }
 }
 module linkage_rod(length, pin_d=2) {
     disc_r = link_disc_d / 2;
+    stick_reach = link_stick_reach(pin_d);
+    tip_inset = pin_d / 2 + link_stick_pin_gap; // stop radius from disc center (YZ)
+    z_crank_tip = -tip_inset;
+    z_flange_tip = -length + disc_r - stick_reach; // = -length + tip_inset (more −Z than crank end)
     color("Silver")
-        translate([0, 0, -length - disc_r - link_stick_bore_depth])
-        cylinder(d=1.5, h=length + disc_r + 2 * link_stick_bore_depth, center=false);
-    // Crank end: pin along X; stick into -Z rim
+        translate([0, 0, z_flange_tip])
+            cylinder(d=1.5, h=z_crank_tip - z_flange_tip, center=false);
+    // Crank end: pin along X; stick into -Z rim (stops short of pin bore)
     link_end_disc(pin_d, stick_rim_z=-1);
     // Piston / flange end: same disc; stick into +Z rim (rod approaches from crank)
     translate([0, 0, -length]) link_end_disc(pin_d, stick_rim_z=1);

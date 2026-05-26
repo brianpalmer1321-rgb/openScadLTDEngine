@@ -15,6 +15,9 @@ collar_len = 5;     // grip length on crankshaft for timing adjustment
 link_disc_d = 8;          // crank-end disc diameter (YZ face)
 link_stick_bore_d = 1.65; // clearance for 1.5 mm silver rod
 link_stick_bore_depth = 3;  // how far stick enters disc from the rim
+clevis_tab_x = 2;           // fork tab thickness along pin axis (rod_flange / piston clevis)
+clevis_tab_center_x = 3;    // tab center offset from flange axis
+clevis_pin_len = 2 * (clevis_tab_center_x + clevis_tab_x / 2); // pin span = outer tab faces
 crank_web_t = 2.5;        // web plate thickness (matches crank_arm h=2.5)
 crank_web_gap = 3.4;      // clear slot between plates for green fork (≈ pin_d+1.2 + clearance)
 crank_web_x = crank_web_gap / 2 + crank_web_t / 2; // arm center offset from linkage axis
@@ -239,13 +242,13 @@ module rod_flange(pin_d=2.0) {
         union() {
             cylinder(d=flange_od, h=flange_t + 2, center=true);
             translate([0, 0, clevis_base_z]) {
-                clevis_boss_round_top(-3, 4, tab_h=8);
-                clevis_boss_round_top(3, 4, tab_h=8);
+                clevis_boss_round_top(-clevis_tab_center_x, 4, tab_h=8, tab_x=clevis_tab_x);
+                clevis_boss_round_top(clevis_tab_center_x, 4, tab_h=8, tab_x=clevis_tab_x);
             }
         }
         translate([0, 0, -flange_t]) cylinder(d=2.5, h=flange_t + 1.5, center=false); // Blind screw hole
         translate([0, 0, pin_z]) rotate([0, 90, 0])
-            cylinder(d=pin_d, h=flange_od + 2, center=true); // Pin along X (matches link_end_disc)
+            cylinder(d=pin_d, h=clevis_pin_len, center=true); // Pin along X, flush with tab outer faces
     }
 }
 module displacer() { color("LightBlue") cylinder(d=displacer_d, h=displacer_h, center=true); }
@@ -412,7 +415,8 @@ color("Silver") cylinder(d=1.5, h=power_piston_od + 1, center=true);
 // DISPLACER ASSEMBLY WITH INTEGRATED CLEVIS HARDWARE
 translate([0, parts_y_axis, 0]) {
 translate([0, 0, disp_rod_joint_z - disp_flange_pin_z_offset]) rod_flange(pin_d=1.5);
-translate([0, 0, disp_rod_joint_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=1.5, h=14, center=true);
+translate([0, 0, disp_rod_joint_z]) rotate([0, 90, 0])
+    color("Silver") cylinder(d=1.5, h=clevis_pin_len, center=true);
 translate([0, 0, disp_rod_attach_z]) mirror([0, 0, 1])
 displacer_rod(abs(disp_rod_len));
 translate([0, 0, disp_center_z]) displacer();

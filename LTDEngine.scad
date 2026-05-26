@@ -113,7 +113,8 @@ module crank_arm(radius, pin_d=2, collar_outward=1) {
         }
         translate([0, 0, bore_z0])
             cylinder(d=rod_od + 0.15, h=bore_z1 - bore_z0, center=false);
-        translate([0, collar_od / 2, collar_mid_z]) rotate([90, 0, 0])
+        // Setscrew 90° from pin bore (clockwise on collar, shaft axis = Z)
+        translate([collar_od / 2, 0, collar_mid_z]) rotate([0, 90, 0])
             cylinder(d=setscrew_d, h=collar_od, center=true);
         translate([0, radius, 0]) cylinder(d=pin_d, h=6, center=true);
     }

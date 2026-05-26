@@ -6,7 +6,9 @@ mode = "Assembled"; // [Individual, Assembled, Exploded]
 animate_engine = true; // [true, false]
 manual_angle = 45; // [0:360]
 /* [Hardware & Mounting] */
-screw_d = 3.2; screw_pitch = 16; nut_w = 5.5; nut_t = 2.4;
+screw_d = 3.2; screw_pitch = 16;
+insert_hole_d = 4.0;  // press-fit bore for M3 heat-set insert (tune to your inserts)
+insert_depth = 3.5;   // pocket depth; cold plate is 4 mm — use short M3 inserts or adjust
 setscrew_d = 2.5;   // M3 grub screw (clearance/tap hole)
 collar_od = 10;
 collar_len = 5;     // grip length on crankshaft for timing adjustment
@@ -39,7 +41,8 @@ displacer_crank_r = displacer_stroke / 2; power_crank_r = power_stroke / 2;
 
 axle_to_deck = 75; // Increased to 75 to completely clear the 140mm flywheel
 disp_link_len = 40; power_link_len = 25; 
-flywheel_d = 140; flywheel_w = 8; frame_w = 30; frame_t = 5; slot_tolerance = 0.2; parts_y_axis = 0; 
+flywheel_d = 140; flywheel_w = 8; flywheel_collar_od = 10; flywheel_collar_h = 6;
+frame_w = 30; frame_t = 5; slot_tolerance = 0.2; parts_y_axis = 0; 
 left_support_x = -42; flywheel_x = -22; power_piston_x = 22; right_support_x = 42;
 
 // ==========================================
@@ -53,10 +56,12 @@ module mounting_holes(h_len=20) {
     translate([0, -screw_pitch/2, -h_len/2]) cylinder(d=screw_d, h=h_len, center=false);
     translate([0, screw_pitch/2, -h_len/2]) cylinder(d=screw_d, h=h_len, center=false);
 }
-module nut_pockets() {
-    nut_r = (nut_w / cos(30)) / 2;
-    translate([0, -screw_pitch/2, 0]) cylinder(r=nut_r, h=nut_t + 0.2, center=true, $fn=6);
-    translate([0, screw_pitch/2, 0]) cylinder(r=nut_r, h=nut_t + 0.2, center=true, $fn=6);
+module insert_pockets() {
+    insert_z = 4 - insert_depth;
+    translate([0, -screw_pitch/2, insert_z])
+        cylinder(d=insert_hole_d, h=insert_depth + 0.1, center=false);
+    translate([0, screw_pitch/2, insert_z])
+        cylinder(d=insert_hole_d, h=insert_depth + 0.1, center=false);
 }
 module support_frame() {
     difference() {
@@ -174,20 +179,24 @@ module cold_plate() {
         translate([right_support_x, parts_y_axis, 2]) cube([frame_t + slot_tolerance, frame_w + slot_tolerance, 2.5], center=true);
         translate([left_support_x, parts_y_axis, 2]) mounting_holes(h_len=50);
         translate([right_support_x, parts_y_axis, 2]) mounting_holes(h_len=50);
-        translate([left_support_x - (frame_t/2 + nut_t/2 + 0.8), parts_y_axis, 2.5]) nut_pockets();
-        translate([right_support_x + (frame_t/2 + nut_t/2 + 0.8), parts_y_axis, 2.5]) nut_pockets();
+        translate([left_support_x, parts_y_axis, 0]) insert_pockets();
+        translate([right_support_x, parts_y_axis, 0]) insert_pockets();
     }
 }
 module flywheel_geom() {
+    collar_z = flywheel_w / 2 + flywheel_collar_h / 2;
     difference() {
         union() {
             difference() { cylinder(d=flywheel_d, h=flywheel_w, center=true); cylinder(d=flywheel_d - 8, h=flywheel_w + 2, center=true); }
             cylinder(d=12, h=flywheel_w, center=true);
-            translate([0, 0, flywheel_w/2]) cylinder(d=10, h=6, center=false); 
+            translate([0, 0, flywheel_w / 2]) cylinder(d=flywheel_collar_od, h=flywheel_collar_h, center=false);
             cube([flywheel_d - 2, 2.5, flywheel_w - 2], center=true);
             cube([2.5, flywheel_d - 2, flywheel_w - 2], center=true);
         }
-        cylinder(d=3.0, h=flywheel_w + 20, center=true);
+        cylinder(d=rod_od + 0.15, h=flywheel_w + flywheel_collar_h + 4, center=true);
+        // Radial M3 setscrew through clamping collar (shaft axis = Z)
+        translate([flywheel_collar_od / 2, 0, collar_z]) rotate([0, 90, 0])
+            cylinder(d=setscrew_d, h=flywheel_collar_od + 2, center=true);
     }
 }
 
@@ -284,16 +293,19 @@ translate([0, parts_y_axis, -axle_to_deck - cyl_h]) tuna_tin_can();
 }
 } else if (mode == "Individual") {
 // FIXED: Shifted items down to Z=0 and added missing parameter signatures for print safety
-translate([-65, -35, 4]) rotate([180, 0, 0]) cold_plate();
+// Flat on bed; insert pockets and power-cylinder boss toward +Z
+translate([-65, -35, 0]) cold_plate();
 translate([65, -35, 0]) power_cylinder();
-translate([0, 0, 0]) power_piston(pin_d=1.5);
+translate([20, 35, 0]) power_piston(pin_d=1.5);
 translate([-30, -75, 1.5]) rotate([0, 90, 0]) linkage_rod(disp_link_len, pin_d=1.5);
 translate([30, -75, 1.5]) rotate([0, 90, 0]) linkage_rod(power_link_len, pin_d=1.5);
-translate([-65, 55, frame_t/2]) rotate([90, 0, 0]) support_frame();
+// Lay frame on bed; bearing pocket opening faces +Z (no overhang into pocket)
+translate([-65, 55, 0]) rotate([90, 0, 0]) rotate([0, 0, 90]) support_frame();
 translate([45, 50, flywheel_w/2]) flywheel_geom();
-translate([0, -40, 1.25]) crank_arm(displacer_crank_r, pin_d=1.5, collar_outward=-1);
+translate([0, -40, 1.25]) rotate([0, 180, 0]) crank_arm(displacer_crank_r, pin_d=1.5, collar_outward=-1);
 translate([20, -40, 1.25]) crank_arm(power_crank_r, pin_d=1.5, collar_outward=1);
-translate([0, -75, 1.0]) rotate([180, 0, 0]) rod_flange(pin_d=1.5);
+// Disc on bed, clevis tabs toward +Z (pin end up — no overhang into clevis)
+translate([0, -75, (flange_t + 2) / 2]) rod_flange(pin_d=1.5);
 }
 
 

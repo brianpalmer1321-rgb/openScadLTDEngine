@@ -77,7 +77,7 @@ The crankshaft is built from **3 mm rod** segments in the assembly (grey cylinde
 | Part name | Parameter | Qty | Notes |
 |-----------|-----------|-----|-------|
 | Frame mounting screw | `screw_d` | 4 | M3 × ~16 mm pitch across frames (2 per frame) |
-| Frame mounting nut | `nut_w` / `nut_t` | 4 | M3 hex nuts in cold-plate pockets |
+| M3 heat-set insert | `insert_hole_d` / `insert_depth` | 4 | Brass inserts in cold plate (2 per frame mount) |
 | Crank-arm setscrew | `setscrew_d` | 4 | M3 grub screw per crank arm collar (timing trim) |
 | Frame bearing | `bearing_pocket()` | 2 | 8×4×3 mm (e.g. S693ZZ / S693-2RS class) |
 
@@ -87,16 +87,16 @@ When `mode = "Individual"`, parts are placed on the build plate in this order (l
 
 | Part name | Approx. layout position |
 |-----------|-------------------------|
-| Cold plate | Left |
+| Cold plate (insert pockets up) | Left |
 | Power cylinder | Right of cold plate |
 | Power piston | Center |
 | Displacer connecting rod | Lower left |
 | Power connecting rod | Lower right |
-| Support frame | Upper left |
+| Support frame | Upper left (rotated flat for printing) |
 | Flywheel | Upper right |
 | Displacer crank arm | Lower center-left |
 | Power crank arm | Lower center-right |
-| Displacer rod flange | Lower center |
+| Displacer rod flange (clevis up) | Lower center |
 
 Export each solid separately from the rendered view, or split the file into per-part SCAD files if your workflow requires it.
 
@@ -104,4 +104,4 @@ Export each solid separately from the rendered view, or split the file into per-
 
 - Swept-volume ratio defaults to **40:1** (displacer → power cylinder sizing).
 - Power piston runs **90°** out of phase with the displacer crank.
-- Hardware assumptions: M3 mounting screws, 8×4×3 mm bearings on the crank axle.
+- Hardware assumptions: M3 mounting screws, M3 heat-set inserts in the cold plate, 8×4×3 mm bearings on the crank axle.

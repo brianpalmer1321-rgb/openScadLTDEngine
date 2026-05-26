@@ -1,0 +1,101 @@
+// --- GLOBAL PARAMETERS & PRINT CLEARANCES ---
+$fn = 100;
+clearance = 0.4;        // Standard 3D printing tolerance
+fit_tight = 0.15;       // Press-fit tolerance
+
+// --- PHYSICAL PARTS DIMENSIONS (Non-printed) ---
+can_od = 100;
+can_ht = 47;
+brass_tube_od = 4.7;
+brass_tube_id = 3.0;
+brass_tube_ht = 15;
+rod_od = 3.0;
+bearing_od = 8.0;       // uxcell S693C-2OS standard dimensions
+bearing_id = 3.0;
+bearing_th = 4.0;
+
+// --- RENDER CONTROL ---
+// Change to true/false to isolate parts for exporting STLs
+render_printed_parts_only = false;
+
+if (render_printed_parts_only) {
+    translate([0, -60, 0]) displacer_cap();
+    translate([30, 40, 0]) a_frame();
+    translate([-30, 40, 0]) mirror([1,0,0]) a_frame();
+} else {
+    // Full Assembly View
+    tuna_can();
+    translate([0, 0, can_ht]) displacer_cap();
+    translate([0, 0, can_ht + 2]) brass_tube_seal();
+    
+    // A-Frames flanking the center
+    translate([0, 25, can_ht + 2]) a_frame();
+    translate([0, -25, can_ht + 2]) mirror([0,1,0]) a_frame();
+}
+
+// --- MODULES: PRINTED PARTS ---
+
+module displacer_cap() {
+    color("LightBlue", 0.8) {
+        difference() {
+            // Main disc base
+            cylinder(h = 3, d = can_od + 6, center = false);
+            // Center hole for brass tube seal (Press fit)
+            cylinder(h = 10, d = brass_tube_od - fit_tight, center = true);
+            // Mounting holes for A-frames
+            translate([0, 25, -1]) cylinder(h = 6, d = 3);
+            translate([0, -25, -1]) cylinder(h = 6, d = 3);
+        }
+        // Snap-on rim down to hug the tin can
+        difference() {
+            translate([0, 0, -5]) 
+                cylinder(h = 5, d = can_od + 6);
+            translate([0, 0, -6]) 
+                cylinder(h = 7, d = can_od + clearance);
+        }
+    }
+}
+
+module a_frame() {
+    color("LimeGreen") {
+        difference() {
+            union() {
+                // Base mounting block
+                translate([-10, -5, 0]) cube([20, 10, 4]);
+                // Main A-frame angled strut
+                hull() {
+                    translate([-8, -3, 2]) cube([16, 6, 2]);
+                    translate([0, 0, 75]) rotate([90, 0, 0]) cylinder(h = 8, d = 14, center = true);
+                }
+            }
+            // Bearing pocket (Slip fit with printing clearance)
+            translate([0, 0, 75]) rotate([90, 0, 0]) 
+                cylinder(h = bearing_th + clearance, d = bearing_od + clearance, center = true);
+            // Shaft clearance hole through the bearing pocket
+            translate([0, 0, 75]) rotate([90, 0, 0]) 
+                cylinder(h = 20, d = bearing_id + 1, center = true);
+            // Screw hole to mount to the cap
+            translate([0, 0, -1]) cylinder(h = 10, d = 3.2, center = true);
+        }
+    }
+}
+
+// --- MODULES: NON-PRINTED PHYSICAL PARTS ---
+
+module tuna_can() {
+    color("Silver", 0.5) {
+        difference() {
+            cylinder(h = can_ht, d = can_od);
+            translate([0, 0, 1]) cylinder(h = can_ht + 1, d = can_od - 1);
+        }
+    }
+}
+
+module brass_tube_seal() {
+    color("Gold") {
+        difference() {
+            cylinder(h = brass_tube_ht, d = brass_tube_od);
+            translate([0, 0, -1]) cylinder(h = brass_tube_ht + 2, d = brass_tube_id);
+        }
+    }
+}

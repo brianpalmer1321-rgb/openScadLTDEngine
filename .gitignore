@@ -1,0 +1,21 @@
+# OpenSCAD export artifacts
+*.stl
+*.amf
+*.3mf
+*.off
+*.dxf
+*.svg
+*.csg
+
+# OpenSCAD backups
+*.scad~
+*.scad.bak
+
+# macOS
+.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*~

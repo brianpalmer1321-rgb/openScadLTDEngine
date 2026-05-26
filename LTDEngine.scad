@@ -157,7 +157,8 @@ module rod_flange(pin_d=2.0) {
             }
         }
         translate([0, 0, -flange_t]) cylinder(d=2.5, h=flange_t + 1.5, center=false); // Blind screw hole
-        translate([0, 0, (flange_t + 2)/2 + 4]) rotate([90, 0, 90]) cylinder(d=pin_d, h=flange_od + 2, center=true); // Pin hole
+        translate([0, 0, (flange_t + 2)/2 + 4]) rotate([0, 90, 0])
+            cylinder(d=pin_d, h=flange_od + 2, center=true); // Pin along X (matches link_end_disc)
     }
 }
 module displacer() { color("LightBlue") cylinder(d=displacer_d, h=displacer_h, center=true); }
@@ -253,10 +254,12 @@ disp_z_max = disp_can_top_z - displacer_axial_clearance - displacer_h / 2;
 disp_center_mid_z = (disp_z_min + disp_z_max) / 2;
 disp_center_z = disp_center_mid_z + (displacer_stroke / 2) * cos(disp_angle);
 disp_top_z = disp_center_z + displacer_h / 2;
-disp_rod_attach_z = disp_rod_joint_z - 4.0; // top of steel displacer rod
+disp_flange_pin_z_offset = (flange_t + 2) / 2 + 4; // tab clevis pin height above flange center
+disp_rod_attach_z = disp_rod_joint_z - 4.0; // top of steel displacer rod (blind hole in flange)
 disp_rod_len = disp_rod_attach_z - disp_top_z;
-disp_link_len_eff = sqrt(pow(disp_pin_y, 2) + pow(disp_pin_z - disp_rod_attach_z, 2));
-disp_rot_x = atan2(disp_pin_y, disp_pin_z - disp_rod_attach_z);
+// Linkage far-end link_end_disc pin is at disp_rod_joint_z (same as silver pin / flange hole)
+disp_link_len_eff = sqrt(pow(disp_pin_y, 2) + pow(disp_pin_z - disp_rod_joint_z, 2));
+disp_rot_x = atan2(disp_pin_y, disp_pin_z - disp_rod_joint_z);
 
 // Power piston vertical travel inside power cylinder bore
 power_piston_axial_clearance = 1;
@@ -311,7 +314,7 @@ color("Silver") cylinder(d=1.5, h=power_piston_od + 1, center=true);
 }
 // DISPLACER ASSEMBLY WITH INTEGRATED CLEVIS HARDWARE
 translate([0, parts_y_axis, 0]) {
-translate([0, 0, disp_rod_joint_z - 6]) rotate([0, 0, 0]) rod_flange(pin_d=1.5);
+translate([0, 0, disp_rod_joint_z - disp_flange_pin_z_offset]) rod_flange(pin_d=1.5);
 translate([0, 0, disp_rod_joint_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=1.5, h=14, center=true);
 translate([0, 0, disp_rod_attach_z]) mirror([0, 0, 1])
 displacer_rod(abs(disp_rod_len));

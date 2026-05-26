@@ -12,6 +12,20 @@ insert_depth = 3.5;   // pocket depth; cold plate is 4 mm — use short M3 inser
 setscrew_d = 2.5;   // M3 grub screw (clearance/tap hole)
 collar_od = 10;
 collar_len = 5;     // grip length on crankshaft for timing adjustment
+link_disc_d = 8;          // crank-end disc diameter (YZ face)
+link_stick_bore_d = 1.65; // clearance for 1.5 mm silver rod
+link_stick_bore_depth = 3;  // how far stick enters disc from the rim
+crank_web_t = 2.5;        // web plate thickness (matches crank_arm h=2.5)
+crank_web_gap = 3.4;      // clear slot between plates for green fork (≈ pin_d+1.2 + clearance)
+crank_web_x = crank_web_gap / 2 + crank_web_t / 2; // arm center offset from linkage axis
+crank_web_legacy_half = 2; // prior hardcoded web arm offset (±2 mm)
+crank_web_span_delta = 2 * (crank_web_x - crank_web_legacy_half);
+shaft_seg_flywheel_h = 46 - 0.75;
+shaft_seg_mid_h = 20.5 - crank_web_span_delta;
+shaft_seg_mid_x = 11 - crank_web_span_delta / 2;
+shaft_seg_mid_right = shaft_seg_mid_x + shaft_seg_mid_h / 2;
+shaft_seg_power_h = 23.75;
+shaft_seg_power_x = shaft_seg_mid_right + shaft_seg_power_h / 2;
 /* [Assembly Offsets] */
 explode_offset = 50;
 /* [Displacer] */
@@ -77,14 +91,21 @@ module support_frame() {
     }
 }
 module linkage_rod(length, pin_d=2) {
-    color("Silver") translate([0, 0, -length]) cylinder(d=1.5, h=length, center=false); 
+    fork_thin = pin_d + 1.2;
+    disc_r = link_disc_d / 2;
+    color("Silver")
+        translate([0, 0, -length])
+        cylinder(d=1.5, h=length + link_stick_bore_depth, center=false);
+    // Crank end: disc centered on pin (X); stick bore into -Z rim at z = 0 joint
     color("LightGreen") difference() {
-        intersection() {
-            cylinder(d=pin_d + 4, h=3, center=true);
-            cube([pin_d + 1.2, pin_d + 4, 4], center=true); // Flattened sides for web plate clearance
-        }
-        cylinder(d=pin_d, h=5, center=true);
+        rotate([0, 90, 0])
+            cylinder(d=link_disc_d, h=fork_thin, center=true);
+        rotate([0, 90, 0])
+            cylinder(d=pin_d, h=fork_thin + 2, center=true);
+        translate([0, 0, -disc_r])
+            cylinder(d=link_stick_bore_d, h=disc_r + link_stick_bore_depth, center=false);
     }
+    // Piston / flange end (unchanged — pin along Z at rod tip)
     color("LightGreen") translate([0, 0, -length]) difference() {
         cylinder(d=pin_d + 4, h=3, center=true);
         cylinder(d=pin_d, h=5, center=true);
@@ -245,23 +266,23 @@ piston_rot_x = atan2(piston_pin_y, piston_pin_z - power_piston_pin_z);
 
 if (mode == "Assembled" || mode == "Exploded") {
     // 1. DRIVE AXLE LEVEL (Z = 0) - MULTI-SEGMENT CRANKSHAFT ASSEMBLY
-    translate([-(46 + 0.75)/2, 0, 0]) rotate([0, 90, 0]) color("DimGrey") cylinder(d=3, h=(46 - 0.75), center=true);
+    translate([-shaft_seg_flywheel_h / 2, 0, 0]) rotate([0, 90, 0]) color("DimGrey") cylinder(d=rod_od, h=shaft_seg_flywheel_h, center=true);
     translate([flywheel_x, 0, 0]) rotate([engine_angle, 0, 0]) rotate([90, 0, 90]) flywheel_geom();
-    translate([11.0, 0, 0]) rotate([0, 90, 0]) color("DimGrey") cylinder(d=3, h=20.5, center=true);
-    translate([34.625, 0, 0]) rotate([0, 90, 0]) color("DimGrey") cylinder(d=3, h=23.75, center=true);
+    translate([shaft_seg_mid_x, 0, 0]) rotate([0, 90, 0]) color("DimGrey") cylinder(d=rod_od, h=shaft_seg_mid_h, center=true);
+    translate([shaft_seg_power_x, 0, 0]) rotate([0, 90, 0]) color("DimGrey") cylinder(d=rod_od, h=shaft_seg_power_h, center=true);
     
     // DISPLACER KINEMATICS (X = 0) - DUAL WEB SANDWICH CLUSTER
     translate([0, 0, 0]) {
-        translate([-2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, disp_angle]) crank_arm(displacer_crank_r, collar_outward=-1);
-        translate([2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, disp_angle]) crank_arm(displacer_crank_r, collar_outward=1);
+        translate([-crank_web_x, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, disp_angle]) crank_arm(displacer_crank_r, collar_outward=-1);
+        translate([crank_web_x, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, disp_angle]) crank_arm(displacer_crank_r, collar_outward=1);
         translate([0, disp_pin_y, disp_pin_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=1.5, h=8, center=true);
 
 translate([0, disp_pin_y, disp_pin_z]) rotate([-disp_rot_x, 0, 0]) linkage_rod(disp_link_len_eff, pin_d=1.5);
 }
 // POWER PISTON KINEMATICS (X = 22) - DUAL WEB SANDWICH CLUSTER
 translate([power_piston_x, 0, 0]) {
-translate([-2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) crank_arm(power_crank_r, collar_outward=-1);
-translate([2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) crank_arm(power_crank_r, collar_outward=1);
+translate([-crank_web_x, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) crank_arm(power_crank_r, collar_outward=-1);
+translate([crank_web_x, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) crank_arm(power_crank_r, collar_outward=1);
 translate([0, piston_pin_y, piston_pin_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=1.5, h=8, center=true);
 translate([0, piston_pin_y, piston_pin_z]) rotate([-piston_rot_x, 0, 0]) linkage_rod(power_link_len_eff, pin_d=1.5);
 }

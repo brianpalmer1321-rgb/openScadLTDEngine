@@ -18,14 +18,7 @@ link_stick_bore_depth = 3;  // how far stick enters disc from the rim
 crank_web_t = 2.5;        // web plate thickness (matches crank_arm h=2.5)
 crank_web_gap = 3.4;      // clear slot between plates for green fork (≈ pin_d+1.2 + clearance)
 crank_web_x = crank_web_gap / 2 + crank_web_t / 2; // arm center offset from linkage axis
-crank_web_legacy_half = 2; // prior hardcoded web arm offset (±2 mm)
-crank_web_span_delta = 2 * (crank_web_x - crank_web_legacy_half);
-shaft_seg_flywheel_h = 46 - 0.75;
-shaft_seg_mid_h = 20.5 - crank_web_span_delta;
-shaft_seg_mid_x = 11 - crank_web_span_delta / 2;
-shaft_seg_mid_right = shaft_seg_mid_x + shaft_seg_mid_h / 2;
-shaft_seg_power_h = 23.75;
-shaft_seg_power_x = shaft_seg_mid_right + shaft_seg_power_h / 2;
+shaft_seg_gap = 0.5; // clearance before/after web-plate sandwich gaps (linkage fork clearance)
 /* [Assembly Offsets] */
 explode_offset = 50;
 /* [Displacer] */
@@ -58,6 +51,31 @@ disp_link_len = 40; power_link_len = 25;
 flywheel_d = 140; flywheel_w = 8; flywheel_collar_od = 10; flywheel_collar_h = 6;
 frame_w = 30; frame_t = 5; slot_tolerance = 0.2; parts_y_axis = 0; 
 left_support_x = -42; flywheel_x = -22; power_piston_x = 22; right_support_x = 42;
+crank_web_outer = crank_web_x + crank_web_t / 2;
+crank_web_inner = crank_web_x - crank_web_t / 2;
+// Displacer crank webs at x = 0
+disp_web_l_out = -crank_web_outer;
+disp_web_l_in = -crank_web_inner;
+disp_web_r_in = crank_web_inner;
+disp_web_r_out = crank_web_outer;
+// Power crank webs at x = power_piston_x
+pwr_web_l_out = power_piston_x - crank_web_outer;
+pwr_web_l_in = power_piston_x - crank_web_inner;
+pwr_web_r_in = power_piston_x + crank_web_inner;
+pwr_web_r_out = power_piston_x + crank_web_outer;
+// Long spans: stop before sandwich gaps (linkage + fork live between inner web faces)
+shaft_seg_flywheel_left = left_support_x;
+shaft_seg_flywheel_right = disp_web_l_out - shaft_seg_gap;
+shaft_seg_mid_left = disp_web_r_out + shaft_seg_gap;
+shaft_seg_mid_right = pwr_web_l_out - shaft_seg_gap;
+shaft_seg_power_left = pwr_web_r_out + shaft_seg_gap;
+shaft_seg_power_right = right_support_x;
+shaft_seg_flywheel_h = shaft_seg_flywheel_right - shaft_seg_flywheel_left;
+shaft_seg_flywheel_x = shaft_seg_flywheel_left + shaft_seg_flywheel_h / 2;
+shaft_seg_mid_h = shaft_seg_mid_right - shaft_seg_mid_left;
+shaft_seg_mid_x = shaft_seg_mid_left + shaft_seg_mid_h / 2;
+shaft_seg_power_h = shaft_seg_power_right - shaft_seg_power_left;
+shaft_seg_power_x = shaft_seg_power_left + shaft_seg_power_h / 2;
 
 // ==========================================
 // 2. SCAD GEOMETRY MODULES
@@ -76,6 +94,13 @@ module insert_pockets() {
         cylinder(d=insert_hole_d, h=insert_depth + 0.1, center=false);
     translate([0, screw_pitch/2, insert_z])
         cylinder(d=insert_hole_d, h=insert_depth + 0.1, center=false);
+}
+// Shaft stub along X only (omit if length <= 0)
+module shaft_span_x(x_left, x_right) {
+    span_h = x_right - x_left;
+    if (span_h > 0)
+        translate([(x_left + x_right) / 2, 0, 0]) rotate([0, 90, 0])
+            color("DimGrey") cylinder(d=rod_od, h=span_h, center=true);
 }
 module support_frame() {
     difference() {
@@ -295,11 +320,15 @@ power_link_len_eff = sqrt(pow(piston_pin_y, 2) + pow(piston_pin_z - power_piston
 piston_rot_x = atan2(piston_pin_y, piston_pin_z - power_piston_pin_z);
 
 if (mode == "Assembled" || mode == "Exploded") {
-    // 1. DRIVE AXLE LEVEL (Z = 0) - MULTI-SEGMENT CRANKSHAFT ASSEMBLY
-    translate([-shaft_seg_flywheel_h / 2, 0, 0]) rotate([0, 90, 0]) color("DimGrey") cylinder(d=rod_od, h=shaft_seg_flywheel_h, center=true);
+    // 1. DRIVE AXLE LEVEL (Z = 0) - MULTI-SEGMENT CRANKSHAFT (gaps at web sandwiches for linkage)
+    shaft_span_x(shaft_seg_flywheel_left, shaft_seg_flywheel_right);
+    shaft_span_x(disp_web_l_out, disp_web_l_in);
+    shaft_span_x(disp_web_r_in, disp_web_r_out);
+    shaft_span_x(shaft_seg_mid_left, shaft_seg_mid_right);
+    shaft_span_x(pwr_web_l_out, pwr_web_l_in);
+    shaft_span_x(pwr_web_r_in, pwr_web_r_out);
+    shaft_span_x(shaft_seg_power_left, shaft_seg_power_right);
     translate([flywheel_x, 0, 0]) rotate([engine_angle, 0, 0]) rotate([90, 0, 90]) flywheel_geom();
-    translate([shaft_seg_mid_x, 0, 0]) rotate([0, 90, 0]) color("DimGrey") cylinder(d=rod_od, h=shaft_seg_mid_h, center=true);
-    translate([shaft_seg_power_x, 0, 0]) rotate([0, 90, 0]) color("DimGrey") cylinder(d=rod_od, h=shaft_seg_power_h, center=true);
     
     // DISPLACER KINEMATICS (X = 0) - DUAL WEB SANDWICH CLUSTER
     translate([0, 0, 0]) {

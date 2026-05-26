@@ -90,6 +90,24 @@ module support_frame() {
         translate([0, 0, -axle_to_deck + 2.5]) mounting_holes(h_len=50);
     }
 }
+// Fork tab: square shank, +Z crown rounded to link_disc_d (matches link_end_disc arc)
+module clevis_boss_round_top(x, z, tab_h, tab_x = 2) {
+    tab_y = link_disc_d;
+    top_r = min(tab_y / 2, tab_h / 2);
+    body_h = tab_h - top_r;
+    z_top = z + tab_h / 2;
+    z_bottom = z - tab_h / 2;
+    union() {
+        translate([x, 0, z_bottom + body_h / 2])
+            cube([tab_x, tab_y, body_h], center=true);
+        intersection() {
+            translate([x, 0, z_top - top_r])
+                rotate([0, 90, 0]) cylinder(d=2 * top_r, h=tab_x, center=true);
+            translate([x, 0, z_top - top_r / 2])
+                cube([tab_x, tab_y + 0.1, top_r], center=true);
+        }
+    }
+}
 module link_end_disc(pin_d, stick_rim_z=-1) {
     fork_thin = pin_d + 1.2;
     disc_r = link_disc_d / 2;
@@ -148,37 +166,40 @@ module crank_arm(radius, pin_d=2, collar_outward=1) {
 }
 
 module rod_flange(pin_d=2.0) {
+    clevis_base_z = (flange_t + 2) / 2;
+    pin_z = clevis_base_z + 4;
     color("Gold") difference() {
         union() {
             cylinder(d=flange_od, h=flange_t + 2, center=true);
-            translate([0, 0, (flange_t + 2)/2]) {
-                translate([-3, 0, 4]) cube([2, 8, 8], center=true); // Left Tab
-                translate([3, 0, 4]) cube([2, 8, 8], center=true);  // Right Tab
+            translate([0, 0, clevis_base_z]) {
+                clevis_boss_round_top(-3, 4, tab_h=8);
+                clevis_boss_round_top(3, 4, tab_h=8);
             }
         }
         translate([0, 0, -flange_t]) cylinder(d=2.5, h=flange_t + 1.5, center=false); // Blind screw hole
-        translate([0, 0, (flange_t + 2)/2 + 4]) rotate([0, 90, 0])
+        translate([0, 0, pin_z]) rotate([0, 90, 0])
             cylinder(d=pin_d, h=flange_od + 2, center=true); // Pin along X (matches link_end_disc)
     }
 }
 module displacer() { color("LightBlue") cylinder(d=displacer_d, h=displacer_h, center=true); }
 module power_piston(pin_d=1.5) {
-    color("DimGrey")
-    difference() {
-        cylinder(d=power_piston_od, h=power_piston_h, center=false);
-        translate([0, 0, 1.5]) cylinder(d=power_piston_od - 2, h=power_piston_h, center=false);
-        translate([0, 0, power_piston_h / 2]) rotate([0, 90, 0]) 
-            cylinder(d=pin_d, h=power_piston_od + 2, center=true);
-    }
-    difference() {
-        intersection() {
-            translate([0, 0, 1.5]) cylinder(d=power_piston_od - 2.2, h=power_piston_h - 1.5, center=false);
-            union() {
-                translate([-3, 0, power_piston_h / 2]) cube([2, 8, power_piston_h - 2], center=true); // Left boss
-                translate([3, 0, power_piston_h / 2]) cube([2, 8, power_piston_h - 2], center=true);  // Right boss
+    pin_z = power_piston_h / 2;
+    boss_h = power_piston_h - 2;
+    color("DimGrey") difference() {
+        union() {
+            difference() {
+                cylinder(d=power_piston_od, h=power_piston_h, center=false);
+                translate([0, 0, 1.5]) cylinder(d=power_piston_od - 2, h=power_piston_h, center=false);
+            }
+            intersection() {
+                translate([0, 0, 1.5]) cylinder(d=power_piston_od - 2.2, h=power_piston_h - 1.5, center=false);
+                union() {
+                    clevis_boss_round_top(-3, pin_z, boss_h);
+                    clevis_boss_round_top(3, pin_z, boss_h);
+                }
             }
         }
-        translate([0, 0, power_piston_h / 2]) rotate([0, 90, 0]) 
+        translate([0, 0, pin_z]) rotate([0, 90, 0])
             cylinder(d=pin_d, h=power_piston_od + 2, center=true);
     }
 }
@@ -295,6 +316,7 @@ translate([crank_web_x, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) 
 translate([0, piston_pin_y, piston_pin_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=1.5, h=8, center=true);
 translate([0, piston_pin_y, piston_pin_z]) rotate([-piston_rot_x, 0, 0]) linkage_rod(power_link_len_eff, pin_d=1.5);
 }
+
 // 2. CHASSIS MOUNT DECK (Spans downward to frame top beds)
 translate([0, 0, -ez]) {
 translate([left_support_x, parts_y_axis, 0]) support_frame();

@@ -7,6 +7,9 @@ animate_engine = true; // [true, false]
 manual_angle = 45; // [0:360]
 /* [Hardware & Mounting] */
 screw_d = 3.2; screw_pitch = 16; nut_w = 5.5; nut_t = 2.4;
+setscrew_d = 2.5;   // M3 grub screw (clearance/tap hole)
+collar_od = 10;
+collar_len = 5;     // grip length on crankshaft for timing adjustment
 /* [Assembly Offsets] */
 explode_offset = 50;
 /* [Displacer] */
@@ -82,10 +85,18 @@ module linkage_rod(length, pin_d=2) {
         cylinder(d=pin_d, h=5, center=true);
     }
 }
-module crank_arm(radius, pin_d=2) {
+// collar_outward: +1 or -1, clamp extends away from web sandwich center only
+module crank_arm(radius, pin_d=2, collar_outward=1) {
+    collar_z0 = (collar_outward > 0) ? 0 : -collar_len;
+    collar_z1 = (collar_outward > 0) ? collar_len : 0;
+    collar_mid_z = (collar_z0 + collar_z1) / 2;
+    bore_z0 = min(-1.5, collar_z0) - 0.5;
+    bore_z1 = max(1.5, collar_z1) + 0.5;
+
     color("DarkOrange") difference() {
         union() {
-            cylinder(d=12, h=2.5, center=true);
+            translate([0, 0, collar_z0])
+                cylinder(d=collar_od, h=collar_len, center=false);
             hull() {
                 cylinder(d=10, h=2.5, center=true);
                 translate([0, radius, 0]) cylinder(d=7, h=2.5, center=true);
@@ -95,8 +106,11 @@ module crank_arm(radius, pin_d=2) {
                 translate([0, -radius*0.8, 0]) cylinder(d=16, h=2.5, center=true);
             }
         }
-        cylinder(d=3.0, h=6, center=true); 
-        translate([0, radius, 0]) cylinder(d=pin_d, h=6, center=true); 
+        translate([0, 0, bore_z0])
+            cylinder(d=rod_od + 0.15, h=bore_z1 - bore_z0, center=false);
+        translate([0, collar_od / 2, collar_mid_z]) rotate([90, 0, 0])
+            cylinder(d=setscrew_d, h=collar_od, center=true);
+        translate([0, radius, 0]) cylinder(d=pin_d, h=6, center=true);
     }
 }
 
@@ -228,16 +242,16 @@ if (mode == "Assembled" || mode == "Exploded") {
     
     // DISPLACER KINEMATICS (X = 0) - DUAL WEB SANDWICH CLUSTER
     translate([0, 0, 0]) {
-        translate([-2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, disp_angle]) crank_arm(displacer_crank_r);
-        translate([2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, disp_angle]) crank_arm(displacer_crank_r);
+        translate([-2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, disp_angle]) crank_arm(displacer_crank_r, collar_outward=-1);
+        translate([2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, disp_angle]) crank_arm(displacer_crank_r, collar_outward=1);
         translate([0, disp_pin_y, disp_pin_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=1.5, h=8, center=true);
 
 translate([0, disp_pin_y, disp_pin_z]) rotate([-disp_rot_x, 0, 0]) linkage_rod(disp_link_len_eff, pin_d=1.5);
 }
 // POWER PISTON KINEMATICS (X = 22) - DUAL WEB SANDWICH CLUSTER
 translate([power_piston_x, 0, 0]) {
-translate([-2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) crank_arm(power_crank_r);
-translate([2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) crank_arm(power_crank_r);
+translate([-2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) crank_arm(power_crank_r, collar_outward=-1);
+translate([2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) crank_arm(power_crank_r, collar_outward=1);
 translate([0, piston_pin_y, piston_pin_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=1.5, h=8, center=true);
 translate([0, piston_pin_y, piston_pin_z]) rotate([-piston_rot_x, 0, 0]) linkage_rod(power_link_len_eff, pin_d=1.5);
 }
@@ -277,8 +291,8 @@ translate([-30, -75, 1.5]) rotate([0, 90, 0]) linkage_rod(disp_link_len, pin_d=1
 translate([30, -75, 1.5]) rotate([0, 90, 0]) linkage_rod(power_link_len, pin_d=1.5);
 translate([-65, 55, frame_t/2]) rotate([90, 0, 0]) support_frame();
 translate([45, 50, flywheel_w/2]) flywheel_geom();
-translate([0, -40, 1.25]) crank_arm(displacer_crank_r, pin_d=1.5);
-translate([20, -40, 1.25]) crank_arm(power_crank_r, pin_d=1.5);
+translate([0, -40, 1.25]) crank_arm(displacer_crank_r, pin_d=1.5, collar_outward=-1);
+translate([20, -40, 1.25]) crank_arm(power_crank_r, pin_d=1.5, collar_outward=1);
 translate([0, -75, 1.0]) rotate([180, 0, 0]) rod_flange(pin_d=1.5);
 }
 

@@ -5,18 +5,37 @@ mode = "Assembled"; // [Individual, Assembled, Exploded]
 /* [Kinematics & Animation] */
 animate_engine = true; // [true, false]
 manual_angle = 45; // [0:360]
+/* [Hot cylinder] */
+cyl_id = 100;       // tuna tin outer diameter (mm)
+cyl_wall_t = 0.40;  // tin wall thickness (each side); inner bore = cyl_id - 2*cyl_wall_t
+cyl_h = 47;         // tin height
+/* [Layout & cranktrain] */
+axle_to_deck = 75;  // crank Z=0 to cold plate; keep ≥ flywheel_d/2 + margin
+flywheel_d = 140;
+flywheel_w = 8;
+flywheel_collar_od = 10;
+flywheel_collar_h = 6;
+left_support_x = -42;
+flywheel_x = -22;
+power_piston_x = 22;
+right_support_x = 42;
+disp_link_len = 40;   // nominal displacer rod (Individual export + kinematics seed)
+power_link_len = 25;  // nominal power rod (Individual export)
+power_stroke = 12;
+sv_ratio = 40.0;      // displacer:power swept-volume ratio
 /* [Hardware & Mounting] */
+pin_d = 1.5;          // silver linkage / clevis pins (mm)
+rod_od = 3;           // crankshaft rod stock
 screw_d = 3.2; screw_pitch = 16;
 insert_hole_d = 4.0;  // press-fit bore for M3 heat-set insert (tune to your inserts)
-insert_depth = 3.5;   // pocket depth; cold plate is 4 mm — use short M3 inserts or adjust
+insert_depth = 3.5;   // pocket depth; cold plate thickness = cold_plate_t
 setscrew_d = 2.5;   // M3 grub screw (clearance/tap hole)
 collar_od = 10;
 collar_len = 5;     // grip length on crankshaft for timing adjustment
+bearing_od = 8; bearing_th = 4; bearing_pocket_clearance = 0.2; // S693-class (8×4×3 mm)
+seal_od = 4.7; seal_id = 3.0; seal_h = 15;
 link_disc_d = 8;          // crank-end disc diameter (YZ face)
-link_stick_bore_d = 1.65; // clearance for 1.5 mm silver rod
-link_stick_pin_gap = 0.5;  // silver stick stops this far beyond pin hole OD (radial in disc)
-// Rim → pin: reach into disc from outer edge (replaces fixed link_stick_bore_depth)
-function link_stick_reach(pin_d) = link_disc_d / 2 - pin_d / 2 - link_stick_pin_gap;
+link_stick_bore_depth = 3;  // how far stick enters disc from the rim
 clevis_tab_x = 2;           // fork tab thickness along pin axis (rod_flange / piston clevis)
 clevis_tab_center_x = 3;    // tab center offset from flange axis
 clevis_pin_len = 2 * (clevis_tab_center_x + clevis_tab_x / 2); // pin span = outer tab faces
@@ -31,31 +50,48 @@ displacer_radial_clearance = 1.5; // mm gap to can wall (each side)
 displacer_axial_clearance = 2;    // mm at top and bottom of stroke
 displacer_stroke_ratio = 0.55;    // stroke as fraction of usable bore depth
 /* [Hidden] */
-$fn = 60; cyl_id = 100; cyl_wall_t = 0.40; cyl_h = 47; rod_od = 3; flange_od = 12; flange_t = 2.0;
+$fn = 60;
+flange_od = 12; flange_t = 2.0;
+cold_plate_t = 4;
+cold_plate_lip = 6;           // cold_plate_od = cyl_id + cold_plate_lip
+can_snap_groove_inset = 1.5;  // snap groove radii = cyl_id ± can_snap_groove_inset
+power_cyl_boss_h = 5;         // power cylinder pedestal on cold plate
+frame_w = 30; frame_t = 5; slot_tolerance = 0.2; parts_y_axis = 0;
+shaft_tube_bearing_gap = 0.5;
+// Individual-mode export plate layout (build-plate positions)
+ind_x_cold = -65; ind_y_row1 = -35; ind_x_pwr_cyl = 65;
+ind_x_pwr_piston = 20; ind_y_row2 = 35;
+ind_x_disp_link = -30; ind_x_pwr_link = 30; ind_y_links = -75;
+ind_x_frame = -65; ind_y_frame = 55;
+ind_x_flywheel = 45; ind_y_flywheel = 50;
+ind_x_disp_arm = 0; ind_x_pwr_arm = 20; ind_y_arms = -40;
+ind_y_flange = -75; ind_y_tubes = -95;
 
 // ==========================================
 // 1. LTD OPTIMIZED THERMODYNAMIC CALCULATIONS
 // ==========================================
-sv_ratio = 40.0;
-can_inner_d = cyl_id - 0.8; // matches tuna_tin_can() inner diameter
+can_inner_d = cyl_id - 2 * cyl_wall_t;
+cold_plate_od = cyl_id + cold_plate_lip;
+can_snap_groove_outer_d = cyl_id + can_snap_groove_inset;
+can_snap_groove_inner_d = cyl_id - can_snap_groove_inset;
+link_stick_bore_d = pin_d + 0.15;
+bearing_pocket_od = bearing_od + bearing_pocket_clearance;
+bearing_pocket_h = bearing_th + 0.1;
+bearing_shaft_hole_d = rod_od + 0.5;
+bearing_inboard_t = bearing_pocket_h;
+flywheel_hub_od = rod_od + 9;
+crank_pin_show_len = link_disc_d;
 displacer_d = can_inner_d - 2 * displacer_radial_clearance;
 disp_bore_depth = cyl_h - 2 * displacer_axial_clearance;
 displacer_stroke = disp_bore_depth * displacer_stroke_ratio;
 displacer_h = disp_bore_depth - displacer_stroke;
 displacer_r = displacer_d / 2; displacer_area = 3.14159265 * displacer_r * displacer_r;
 displacer_swept_vol = displacer_area * displacer_stroke;
-power_swept_vol = displacer_swept_vol / sv_ratio; power_stroke = 12;
+power_swept_vol = displacer_swept_vol / sv_ratio;
 power_cyl_id = sqrt(power_swept_vol / (3.14159265 * 0.25 * power_stroke));
 power_cyl_od = power_cyl_id + 4; power_cyl_h = power_stroke + 10;
 power_piston_od = power_cyl_id - 0.15; power_piston_h = 8;
-seal_od = 4.7; seal_id = 3.0; seal_h = 15;
-displacer_crank_r = displacer_stroke / 2; power_crank_r = power_stroke / 2;         
-
-axle_to_deck = 75; // Increased to 75 to completely clear the 140mm flywheel
-disp_link_len = 40; power_link_len = 25; 
-flywheel_d = 140; flywheel_w = 8; flywheel_collar_od = 10; flywheel_collar_h = 6;
-frame_w = 30; frame_t = 5; slot_tolerance = 0.2; parts_y_axis = 0; 
-left_support_x = -42; flywheel_x = -22; power_piston_x = 22; right_support_x = 42;
+displacer_crank_r = displacer_stroke / 2; power_crank_r = power_stroke / 2;
 crank_web_outer = crank_web_x + crank_web_t / 2;
 crank_web_inner = crank_web_x - crank_web_t / 2;
 // Displacer crank webs at x = 0
@@ -82,8 +118,6 @@ shaft_seg_mid_x = shaft_seg_mid_left + shaft_seg_mid_h / 2;
 shaft_seg_power_h = shaft_seg_power_right - shaft_seg_power_left;
 shaft_seg_power_x = shaft_seg_power_left + shaft_seg_power_h / 2;
 shaft_tube_id = rod_od + 0.2; // bore over crank rod (matches crank_arm shaft clearance)
-bearing_inboard_t = 4.1; // bearing_pocket() housing length along shaft (X)
-shaft_tube_bearing_gap = 0.5; // tube stops this far inboard of bearing housing
 flywheel_hub_l_x = flywheel_x - flywheel_w / 2; // −X face of flywheel hub (shaft axis = Z in geom → X after rotate)
 flywheel_hub_r_x = flywheel_x + flywheel_w / 2; // +X face of hub; flywheel collar seats here
 flywheel_collar_r_x = flywheel_hub_r_x + flywheel_collar_h; // +X face of flywheel timing collar (toward disp crank)
@@ -112,15 +146,15 @@ shaft_tube_fly_frame_len = shaft_tube_fly_frame_x1 - shaft_tube_fly_frame_x0;
 // 2. SCAD GEOMETRY MODULES
 // ==========================================
 module bearing_pocket() {
-    cylinder(d=8.2, h=4.1, center=false);
-    translate([0, 0, -6]) cylinder(d=3.5, h=10, center=false);
+    cylinder(d=bearing_pocket_od, h=bearing_pocket_h, center=false);
+    translate([0, 0, -6]) cylinder(d=bearing_shaft_hole_d, h=10, center=false);
 }
 module mounting_holes(h_len=20) {
     translate([0, -screw_pitch/2, -h_len/2]) cylinder(d=screw_d, h=h_len, center=false);
     translate([0, screw_pitch/2, -h_len/2]) cylinder(d=screw_d, h=h_len, center=false);
 }
 module insert_pockets() {
-    insert_z = 4 - insert_depth;
+    insert_z = cold_plate_t - insert_depth;
     translate([0, -screw_pitch/2, insert_z])
         cylinder(d=insert_hole_d, h=insert_depth + 0.1, center=false);
     translate([0, screw_pitch/2, insert_z])
@@ -183,43 +217,37 @@ module clevis_boss_round_top(x, z, tab_h, tab_x = 2) {
 module link_end_disc(pin_d, stick_rim_z=-1) {
     fork_thin = pin_d + 1.2;
     disc_r = link_disc_d / 2;
-    stick_reach = link_stick_reach(pin_d);
     color("LightGreen") difference() {
         rotate([0, 90, 0])
             cylinder(d=link_disc_d, h=fork_thin, center=true);
         rotate([0, 90, 0])
             cylinder(d=pin_d, h=fork_thin + 2, center=true);
-        if (stick_reach > 0)
-            if (stick_rim_z < 0)
+        if (stick_rim_z < 0)
+            translate([0, 0, -disc_r])
+                cylinder(d=link_stick_bore_d, h=disc_r + link_stick_bore_depth, center=false);
+        else
+            mirror([0, 0, 1])
                 translate([0, 0, -disc_r])
-                    cylinder(d=link_stick_bore_d, h=stick_reach, center=false);
-            else
-                mirror([0, 0, 1])
-                    translate([0, 0, -disc_r])
-                        cylinder(d=link_stick_bore_d, h=stick_reach, center=false);
+                cylinder(d=link_stick_bore_d, h=disc_r + link_stick_bore_depth, center=false);
     }
 }
-module linkage_rod(length, pin_d=2) {
+module linkage_rod(length, pin_d=pin_d) {
     disc_r = link_disc_d / 2;
-    stick_reach = link_stick_reach(pin_d);
-    tip_inset = pin_d / 2 + link_stick_pin_gap; // stop radius from disc center (YZ)
-    z_crank_tip = -tip_inset;
-    z_flange_tip = -length + disc_r - stick_reach; // = -length + tip_inset (more −Z than crank end)
     color("Silver")
-        translate([0, 0, z_flange_tip])
-            cylinder(d=1.5, h=z_crank_tip - z_flange_tip, center=false);
-    // Crank end: pin along X; stick into -Z rim (stops short of pin bore)
+        translate([0, 0, -length - disc_r - link_stick_bore_depth])
+        cylinder(d=pin_d, h=length + disc_r + 2 * link_stick_bore_depth, center=false);
+    // Crank end: pin along X; stick into -Z rim
     link_end_disc(pin_d, stick_rim_z=-1);
     // Piston / flange end: same disc; stick into +Z rim (rod approaches from crank)
     translate([0, 0, -length]) link_end_disc(pin_d, stick_rim_z=1);
 }
 // collar_outward: +1 or -1, clamp extends away from web sandwich center only
-module crank_arm(radius, pin_d=2, collar_outward=1) {
+module crank_arm(radius, pin_d=pin_d, collar_outward=1) {
     collar_z0 = (collar_outward > 0) ? 0 : -collar_len;
     collar_z1 = (collar_outward > 0) ? collar_len : 0;
     collar_mid_z = (collar_z0 + collar_z1) / 2;
-    bore_z0 = min(-1.5, collar_z0) - 0.5;
-    bore_z1 = max(1.5, collar_z1) + 0.5;
+    bore_z0 = min(-pin_d, collar_z0) - 0.5;
+    bore_z1 = max(pin_d, collar_z1) + 0.5;
 
     color("DarkOrange") difference() {
         union() {
@@ -243,7 +271,7 @@ module crank_arm(radius, pin_d=2, collar_outward=1) {
     }
 }
 
-module rod_flange(pin_d=2.0) {
+module rod_flange(pin_d=pin_d) {
     clevis_base_z = (flange_t + 2) / 2;
     pin_z = clevis_base_z + 4;
     color("Gold") difference() {
@@ -260,7 +288,7 @@ module rod_flange(pin_d=2.0) {
     }
 }
 module displacer() { color("LightBlue") cylinder(d=displacer_d, h=displacer_h, center=true); }
-module power_piston(pin_d=1.5) {
+module power_piston(pin_d=pin_d) {
     pin_z = power_piston_h / 2;
     boss_h = power_piston_h - 2;
     color("DimGrey") difference() {
@@ -290,17 +318,20 @@ module power_cylinder() {
 module displacer_rod(rod_len) { color("SteelBlue") cylinder(d=rod_od, h=rod_len, center=false); }
 module tuna_tin_can() {
     color("DarkGrey", 0.4) difference() {
-        cylinder(d=100, h=cyl_h, center=false);
-        translate([0, 0, 0.5]) cylinder(d=100 - 0.8, h=cyl_h + 1, center=false);
+        cylinder(d=cyl_id, h=cyl_h, center=false);
+        translate([0, 0, 0.5]) cylinder(d=can_inner_d, h=cyl_h + 1, center=false);
     }
 }
 module cold_plate() {
     difference() {
         union() {
-            cylinder(d=106, h=4, center=false);
-            translate([power_piston_x, parts_y_axis, 0]) cylinder(d=power_cyl_od + 4, h=5, center=false);
+            cylinder(d=cold_plate_od, h=cold_plate_t, center=false);
+            translate([power_piston_x, parts_y_axis, 0]) cylinder(d=power_cyl_od + 4, h=power_cyl_boss_h, center=false);
         }
-        translate([0, 0, -0.5]) difference() { cylinder(d=101.5, h=2.5, center=false); cylinder(d=98.5, h=3.0, center=false); }
+        translate([0, 0, -0.5]) difference() {
+            cylinder(d=can_snap_groove_outer_d, h=2.5, center=false);
+            cylinder(d=can_snap_groove_inner_d, h=3.0, center=false);
+        }
         translate([0, 0, -1]) cylinder(d=seal_od, h=10, center=false);
         translate([power_piston_x, parts_y_axis, -1]) cylinder(d=power_cyl_id, h=15, center=false);
         translate([left_support_x, parts_y_axis, 2]) cube([frame_t + slot_tolerance, frame_w + slot_tolerance, 2.5], center=true);
@@ -316,7 +347,7 @@ module flywheel_geom() {
     difference() {
         union() {
             difference() { cylinder(d=flywheel_d, h=flywheel_w, center=true); cylinder(d=flywheel_d - 8, h=flywheel_w + 2, center=true); }
-            cylinder(d=12, h=flywheel_w, center=true);
+            cylinder(d=flywheel_hub_od, h=flywheel_w, center=true);
             translate([0, 0, flywheel_w / 2]) cylinder(d=flywheel_collar_od, h=flywheel_collar_h, center=false);
             cube([flywheel_d - 2, 2.5, flywheel_w - 2], center=true);
             cube([2.5, flywheel_d - 2, flywheel_w - 2], center=true);
@@ -362,7 +393,7 @@ disp_rot_x = atan2(disp_pin_y, disp_pin_z - disp_rod_joint_z);
 
 // Power piston vertical travel inside power cylinder bore
 power_piston_axial_clearance = 1;
-power_cyl_base_z = -axle_to_deck + 4;
+power_cyl_base_z = -axle_to_deck + cold_plate_t;
 power_cyl_bore_top_z = power_cyl_base_z + power_cyl_h;
 power_piston_base_min = power_cyl_base_z + power_piston_axial_clearance;
 power_piston_base_max = power_cyl_bore_top_z - power_piston_axial_clearance - power_piston_h;
@@ -391,16 +422,16 @@ if (mode == "Assembled" || mode == "Exploded") {
     translate([0, 0, 0]) {
         translate([-crank_web_x, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, disp_angle]) crank_arm(displacer_crank_r, collar_outward=-1);
         translate([crank_web_x, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, disp_angle]) crank_arm(displacer_crank_r, collar_outward=1);
-        translate([0, disp_pin_y, disp_pin_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=1.5, h=8, center=true);
+        translate([0, disp_pin_y, disp_pin_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=pin_d, h=crank_pin_show_len, center=true);
 
-translate([0, disp_pin_y, disp_pin_z]) rotate([-disp_rot_x, 0, 0]) linkage_rod(disp_link_len_eff, pin_d=1.5);
+translate([0, disp_pin_y, disp_pin_z]) rotate([-disp_rot_x, 0, 0]) linkage_rod(disp_link_len_eff);
 }
-// POWER PISTON KINEMATICS (X = 22) - DUAL WEB SANDWICH CLUSTER
+// POWER PISTON KINEMATICS — dual web sandwich at power_piston_x
 translate([power_piston_x, 0, 0]) {
 translate([-crank_web_x, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) crank_arm(power_crank_r, collar_outward=-1);
 translate([crank_web_x, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) crank_arm(power_crank_r, collar_outward=1);
-translate([0, piston_pin_y, piston_pin_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=1.5, h=8, center=true);
-translate([0, piston_pin_y, piston_pin_z]) rotate([-piston_rot_x, 0, 0]) linkage_rod(power_link_len_eff, pin_d=1.5);
+translate([0, piston_pin_y, piston_pin_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=pin_d, h=crank_pin_show_len, center=true);
+translate([0, piston_pin_y, piston_pin_z]) rotate([-piston_rot_x, 0, 0]) linkage_rod(power_link_len_eff);
 }
 
 // 2. CHASSIS MOUNT DECK (Spans downward to frame top beds)
@@ -409,22 +440,22 @@ translate([left_support_x, parts_y_axis, 0]) support_frame();
 translate([right_support_x, parts_y_axis, 0]) mirror([1, 0, 0]) support_frame();
 translate([0, parts_y_axis, -axle_to_deck]) {
 cold_plate();
-translate([power_piston_x, parts_y_axis, 4]) power_cylinder();
+translate([power_piston_x, parts_y_axis, cold_plate_t]) power_cylinder();
 }
 }
 // 3. INTERNAL ENGINE CAVITY (Pistons, clevis couplings, and pressure vessels)
 translate([0, 0, -ez * 2]) {
 // POWER PISTON CLUSTER WITH MECHANICAL HINGE PIN
 translate([power_piston_x, parts_y_axis, power_piston_base_z]) {
-power_piston(pin_d=1.5);
+power_piston();
 translate([0, 0, power_piston_h / 2]) rotate([0, 90, 0])
-color("Silver") cylinder(d=1.5, h=power_piston_od + 1, center=true);
+color("Silver") cylinder(d=pin_d, h=power_piston_od + 1, center=true);
 }
 // DISPLACER ASSEMBLY WITH INTEGRATED CLEVIS HARDWARE
 translate([0, parts_y_axis, 0]) {
-translate([0, 0, disp_rod_joint_z - disp_flange_pin_z_offset]) rod_flange(pin_d=1.5);
+translate([0, 0, disp_rod_joint_z - disp_flange_pin_z_offset]) rod_flange();
 translate([0, 0, disp_rod_joint_z]) rotate([0, 90, 0])
-    color("Silver") cylinder(d=1.5, h=clevis_pin_len, center=true);
+    color("Silver") cylinder(d=pin_d, h=clevis_pin_len, center=true);
 translate([0, 0, disp_rod_attach_z]) mirror([0, 0, 1])
 displacer_rod(abs(disp_rod_len));
 translate([0, 0, disp_center_z]) displacer();
@@ -432,25 +463,24 @@ translate([0, 0, disp_center_z]) displacer();
 translate([0, parts_y_axis, -axle_to_deck - cyl_h]) tuna_tin_can();
 }
 } else if (mode == "Individual") {
-// FIXED: Shifted items down to Z=0 and added missing parameter signatures for print safety
 // Flat on bed; insert pockets and power-cylinder boss toward +Z
-translate([-65, -35, 0]) cold_plate();
-translate([65, -35, 0]) power_cylinder();
-translate([20, 35, 0]) power_piston(pin_d=1.5);
-translate([-30, -75, 1.5]) rotate([0, 90, 0]) linkage_rod(disp_link_len, pin_d=1.5);
-translate([30, -75, 1.5]) rotate([0, 90, 0]) linkage_rod(power_link_len, pin_d=1.5);
+translate([ind_x_cold, ind_y_row1, 0]) cold_plate();
+translate([ind_x_pwr_cyl, ind_y_row1, 0]) power_cylinder();
+translate([ind_x_pwr_piston, ind_y_row2, 0]) power_piston();
+translate([ind_x_disp_link, ind_y_links, pin_d]) rotate([0, 90, 0]) linkage_rod(disp_link_len);
+translate([ind_x_pwr_link, ind_y_links, pin_d]) rotate([0, 90, 0]) linkage_rod(power_link_len);
 // Lay frame on bed; bearing pocket opening faces +Z (no overhang into pocket)
-translate([-65, 55, 0]) rotate([90, 0, 0]) rotate([0, 0, 90]) support_frame();
-translate([45, 50, flywheel_w/2]) flywheel_geom();
-translate([0, -40, 1.25]) rotate([0, 180, 0]) crank_arm(displacer_crank_r, pin_d=1.5, collar_outward=-1);
-translate([20, -40, 1.25]) crank_arm(power_crank_r, pin_d=1.5, collar_outward=1);
+translate([ind_x_frame, ind_y_frame, 0]) rotate([90, 0, 0]) rotate([0, 0, 90]) support_frame();
+translate([ind_x_flywheel, ind_y_flywheel, flywheel_w/2]) flywheel_geom();
+translate([ind_x_disp_arm, ind_y_arms, 1.25]) rotate([0, 180, 0]) crank_arm(displacer_crank_r, collar_outward=-1);
+translate([ind_x_pwr_arm, ind_y_arms, 1.25]) crank_arm(power_crank_r, collar_outward=1);
 // Disc on bed, clevis tabs toward +Z (pin end up — no overhang into clevis)
-translate([0, -75, (flange_t + 2) / 2]) rod_flange(pin_d=1.5);
+translate([0, ind_y_flange, (flange_t + 2) / 2]) rod_flange();
 // Four axle stiffener tubes (+X order: pwr-frame, pwr-disp, disp-fly, fly-frame)
-translate([45, -95, shaft_tube_pwr_frame_len / 2]) crank_shaft_tube(shaft_tube_pwr_frame_len);
-translate([30, -95, shaft_tube_pwr_disp_len / 2]) crank_shaft_tube(shaft_tube_pwr_disp_len);
-translate([15, -95, shaft_tube_disp_fly_len / 2]) crank_shaft_tube(shaft_tube_disp_fly_len);
-translate([0, -95, shaft_tube_fly_frame_len / 2]) crank_shaft_tube(shaft_tube_fly_frame_len);
+translate([ind_x_flywheel, ind_y_tubes, shaft_tube_pwr_frame_len / 2]) crank_shaft_tube(shaft_tube_pwr_frame_len);
+translate([ind_x_flywheel - 15, ind_y_tubes, shaft_tube_pwr_disp_len / 2]) crank_shaft_tube(shaft_tube_pwr_disp_len);
+translate([ind_x_flywheel - 30, ind_y_tubes, shaft_tube_disp_fly_len / 2]) crank_shaft_tube(shaft_tube_disp_fly_len);
+translate([ind_x_flywheel - 45, ind_y_tubes, shaft_tube_fly_frame_len / 2]) crank_shaft_tube(shaft_tube_fly_frame_len);
 }
 
 

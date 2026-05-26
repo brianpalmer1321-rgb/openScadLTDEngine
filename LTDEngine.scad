@@ -76,6 +76,32 @@ shaft_seg_mid_h = shaft_seg_mid_right - shaft_seg_mid_left;
 shaft_seg_mid_x = shaft_seg_mid_left + shaft_seg_mid_h / 2;
 shaft_seg_power_h = shaft_seg_power_right - shaft_seg_power_left;
 shaft_seg_power_x = shaft_seg_power_left + shaft_seg_power_h / 2;
+shaft_tube_id = rod_od + 0.2; // bore over crank rod (matches crank_arm shaft clearance)
+bearing_inboard_t = 4.1; // bearing_pocket() housing length along shaft (X)
+shaft_tube_bearing_gap = 0.5; // tube stops this far inboard of bearing housing
+flywheel_hub_l_x = flywheel_x - flywheel_w / 2; // −X face of flywheel hub (shaft axis = Z in geom → X after rotate)
+flywheel_hub_r_x = flywheel_x + flywheel_w / 2; // +X face of hub; flywheel collar seats here
+flywheel_collar_r_x = flywheel_hub_r_x + flywheel_collar_h; // +X face of flywheel timing collar (toward disp crank)
+// Outboard crank collar faces along X (collar_outward clamps away from web sandwich)
+disp_collar_l_face = -crank_web_x - collar_len;
+disp_collar_r_face = crank_web_x + collar_len;
+pwr_collar_l_face = power_piston_x - crank_web_x - collar_len;
+pwr_collar_r_face = power_piston_x + crank_web_x + collar_len;
+left_bearing_inboard_x = left_support_x + bearing_inboard_t;
+right_bearing_inboard_x = right_support_x - bearing_inboard_t;
+// Four stiffener tubes: butt crank collars + flywheel hub/collar; 0.5 mm clearance at frame bearings
+shaft_tube_pwr_frame_x0 = pwr_collar_r_face;
+shaft_tube_pwr_frame_x1 = right_bearing_inboard_x - shaft_tube_bearing_gap;
+shaft_tube_pwr_disp_x0 = disp_collar_r_face;
+shaft_tube_pwr_disp_x1 = pwr_collar_l_face;
+shaft_tube_disp_fly_x0 = flywheel_collar_r_x;
+shaft_tube_disp_fly_x1 = disp_collar_l_face;
+shaft_tube_fly_frame_x0 = left_bearing_inboard_x + shaft_tube_bearing_gap;
+shaft_tube_fly_frame_x1 = flywheel_hub_l_x;
+shaft_tube_pwr_frame_len = shaft_tube_pwr_frame_x1 - shaft_tube_pwr_frame_x0;
+shaft_tube_pwr_disp_len = shaft_tube_pwr_disp_x1 - shaft_tube_pwr_disp_x0;
+shaft_tube_disp_fly_len = shaft_tube_disp_fly_x1 - shaft_tube_disp_fly_x0;
+shaft_tube_fly_frame_len = shaft_tube_fly_frame_x1 - shaft_tube_fly_frame_x0;
 
 // ==========================================
 // 2. SCAD GEOMETRY MODULES
@@ -101,6 +127,22 @@ module shaft_span_x(x_left, x_right) {
     if (span_h > 0)
         translate([(x_left + x_right) / 2, 0, 0]) rotate([0, 90, 0])
             color("DimGrey") cylinder(d=rod_od, h=span_h, center=true);
+}
+// Stiffener tube on exposed rod: OD = crank collar, ID clears 3 mm rod (skip linkage fork gaps)
+module crank_shaft_tube_x(x_left, x_right) {
+    len = x_right - x_left;
+    if (len > 0)
+        translate([(x_left + x_right) / 2, 0, 0]) rotate([0, 90, 0])
+            difference() {
+                color("SteelBlue") cylinder(d=collar_od, h=len, center=true);
+                cylinder(d=shaft_tube_id, h=len + 0.1, center=true);
+            }
+}
+module crank_shaft_tube(len) {
+    difference() {
+        color("SteelBlue") cylinder(d=collar_od, h=len, center=true);
+        cylinder(d=shaft_tube_id, h=len + 0.1, center=true);
+    }
 }
 module support_frame() {
     difference() {
@@ -320,7 +362,7 @@ power_link_len_eff = sqrt(pow(piston_pin_y, 2) + pow(piston_pin_z - power_piston
 piston_rot_x = atan2(piston_pin_y, piston_pin_z - power_piston_pin_z);
 
 if (mode == "Assembled" || mode == "Exploded") {
-    // 1. DRIVE AXLE LEVEL (Z = 0) - MULTI-SEGMENT CRANKSHAFT (gaps at web sandwiches for linkage)
+    // 1. DRIVE AXLE (Z = 0): 3 mm rod + four collar-OD tubes between major stations
     shaft_span_x(shaft_seg_flywheel_left, shaft_seg_flywheel_right);
     shaft_span_x(disp_web_l_out, disp_web_l_in);
     shaft_span_x(disp_web_r_in, disp_web_r_out);
@@ -328,6 +370,10 @@ if (mode == "Assembled" || mode == "Exploded") {
     shaft_span_x(pwr_web_l_out, pwr_web_l_in);
     shaft_span_x(pwr_web_r_in, pwr_web_r_out);
     shaft_span_x(shaft_seg_power_left, shaft_seg_power_right);
+    crank_shaft_tube_x(shaft_tube_pwr_frame_x0, shaft_tube_pwr_frame_x1);
+    crank_shaft_tube_x(shaft_tube_pwr_disp_x0, shaft_tube_pwr_disp_x1);
+    crank_shaft_tube_x(shaft_tube_disp_fly_x0, shaft_tube_disp_fly_x1);
+    crank_shaft_tube_x(shaft_tube_fly_frame_x0, shaft_tube_fly_frame_x1);
     translate([flywheel_x, 0, 0]) rotate([engine_angle, 0, 0]) rotate([90, 0, 90]) flywheel_geom();
     
     // DISPLACER KINEMATICS (X = 0) - DUAL WEB SANDWICH CLUSTER
@@ -388,6 +434,11 @@ translate([0, -40, 1.25]) rotate([0, 180, 0]) crank_arm(displacer_crank_r, pin_d
 translate([20, -40, 1.25]) crank_arm(power_crank_r, pin_d=1.5, collar_outward=1);
 // Disc on bed, clevis tabs toward +Z (pin end up — no overhang into clevis)
 translate([0, -75, (flange_t + 2) / 2]) rod_flange(pin_d=1.5);
+// Four axle stiffener tubes (+X order: pwr-frame, pwr-disp, disp-fly, fly-frame)
+translate([45, -95, shaft_tube_pwr_frame_len / 2]) crank_shaft_tube(shaft_tube_pwr_frame_len);
+translate([30, -95, shaft_tube_pwr_disp_len / 2]) crank_shaft_tube(shaft_tube_pwr_disp_len);
+translate([15, -95, shaft_tube_disp_fly_len / 2]) crank_shaft_tube(shaft_tube_disp_fly_len);
+translate([0, -95, shaft_tube_fly_frame_len / 2]) crank_shaft_tube(shaft_tube_fly_frame_len);
 }
 
 

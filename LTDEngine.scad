@@ -9,15 +9,24 @@ manual_angle = 45; // [0:360]
 screw_d = 3.2; screw_pitch = 16; nut_w = 5.5; nut_t = 2.4;
 /* [Assembly Offsets] */
 explode_offset = 50;
+/* [Displacer] */
+displacer_radial_clearance = 1.5; // mm gap to can wall (each side)
+displacer_axial_clearance = 2;    // mm at top and bottom of stroke
+displacer_stroke_ratio = 0.55;    // stroke as fraction of usable bore depth
 /* [Hidden] */
 $fn = 60; cyl_id = 100; cyl_wall_t = 0.40; cyl_h = 47; rod_od = 3; flange_od = 12; flange_t = 2.0;
 
 // ==========================================
 // 1. LTD OPTIMIZED THERMODYNAMIC CALCULATIONS
 // ==========================================
-sv_ratio = 40.0; displacer_d = cyl_id - 3; displacer_h = 10;
+sv_ratio = 40.0;
+can_inner_d = cyl_id - 0.8; // matches tuna_tin_can() inner diameter
+displacer_d = can_inner_d - 2 * displacer_radial_clearance;
+disp_bore_depth = cyl_h - 2 * displacer_axial_clearance;
+displacer_stroke = disp_bore_depth * displacer_stroke_ratio;
+displacer_h = disp_bore_depth - displacer_stroke;
 displacer_r = displacer_d / 2; displacer_area = 3.14159265 * displacer_r * displacer_r;
-displacer_stroke = 10; displacer_swept_vol = displacer_area * displacer_stroke;
+displacer_swept_vol = displacer_area * displacer_stroke;
 power_swept_vol = displacer_swept_vol / sv_ratio; power_stroke = 12;
 power_cyl_id = sqrt(power_swept_vol / (3.14159265 * 0.25 * power_stroke));
 power_cyl_od = power_cyl_id + 4; power_cyl_h = power_stroke + 10;
@@ -182,13 +191,33 @@ disp_pin_z = displacer_crank_r * cos(disp_angle);
 piston_pin_y = -power_crank_r * sin(piston_angle);
 piston_pin_z = power_crank_r * cos(piston_angle);
 
-// Slider-crank algebraic linkage geometry solvers
+// Slider-crank: wrist joint Z for displacer rod flange (vertical constraint, Y=0)
 disp_rod_joint_z = disp_pin_z - sqrt(pow(disp_link_len, 2) - pow(disp_pin_y, 2));
-piston_joint_z = piston_pin_z - sqrt(pow(power_link_len, 2) - pow(piston_pin_y, 2));
 
-// Exact triangle solvers keeping the bottom holes tracking perfectly along the true Y=0 vertical axis
-disp_rot_x = atan2(disp_pin_y, (disp_pin_z - disp_rod_joint_z));
-piston_rot_x = atan2(piston_pin_y, (piston_pin_z - piston_joint_z));
+// Displacer vertical travel centered in tuna-can bore
+disp_can_bottom_z = -axle_to_deck - cyl_h;
+disp_can_top_z = -axle_to_deck - displacer_axial_clearance;
+disp_z_min = disp_can_bottom_z + displacer_axial_clearance + displacer_h / 2;
+disp_z_max = disp_can_top_z - displacer_axial_clearance - displacer_h / 2;
+disp_center_mid_z = (disp_z_min + disp_z_max) / 2;
+disp_center_z = disp_center_mid_z + (displacer_stroke / 2) * cos(disp_angle);
+disp_top_z = disp_center_z + displacer_h / 2;
+disp_rod_attach_z = disp_rod_joint_z - 4.0; // top of steel displacer rod
+disp_rod_len = disp_rod_attach_z - disp_top_z;
+disp_link_len_eff = sqrt(pow(disp_pin_y, 2) + pow(disp_pin_z - disp_rod_attach_z, 2));
+disp_rot_x = atan2(disp_pin_y, disp_pin_z - disp_rod_attach_z);
+
+// Power piston vertical travel inside power cylinder bore
+power_piston_axial_clearance = 1;
+power_cyl_base_z = -axle_to_deck + 4;
+power_cyl_bore_top_z = power_cyl_base_z + power_cyl_h;
+power_piston_base_min = power_cyl_base_z + power_piston_axial_clearance;
+power_piston_base_max = power_cyl_bore_top_z - power_piston_axial_clearance - power_piston_h;
+power_piston_base_mid = (power_piston_base_min + power_piston_base_max) / 2;
+power_piston_base_z = power_piston_base_mid + (power_stroke / 2) * cos(piston_angle);
+power_piston_pin_z = power_piston_base_z + power_piston_h / 2;
+power_link_len_eff = sqrt(pow(piston_pin_y, 2) + pow(piston_pin_z - power_piston_pin_z, 2));
+piston_rot_x = atan2(piston_pin_y, piston_pin_z - power_piston_pin_z);
 
 if (mode == "Assembled" || mode == "Exploded") {
     // 1. DRIVE AXLE LEVEL (Z = 0) - MULTI-SEGMENT CRANKSHAFT ASSEMBLY
@@ -203,14 +232,14 @@ if (mode == "Assembled" || mode == "Exploded") {
         translate([2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, disp_angle]) crank_arm(displacer_crank_r);
         translate([0, disp_pin_y, disp_pin_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=1.5, h=8, center=true);
 
-translate([0, disp_pin_y, disp_pin_z]) rotate([-disp_rot_x, 0, 0]) linkage_rod(disp_link_len, pin_d=1.5);
+translate([0, disp_pin_y, disp_pin_z]) rotate([-disp_rot_x, 0, 0]) linkage_rod(disp_link_len_eff, pin_d=1.5);
 }
 // POWER PISTON KINEMATICS (X = 22) - DUAL WEB SANDWICH CLUSTER
 translate([power_piston_x, 0, 0]) {
 translate([-2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) crank_arm(power_crank_r);
 translate([2, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) crank_arm(power_crank_r);
 translate([0, piston_pin_y, piston_pin_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=1.5, h=8, center=true);
-translate([0, piston_pin_y, piston_pin_z]) rotate([-piston_rot_x, 0, 0]) linkage_rod(power_link_len, pin_d=1.5);
+translate([0, piston_pin_y, piston_pin_z]) rotate([-piston_rot_x, 0, 0]) linkage_rod(power_link_len_eff, pin_d=1.5);
 }
 // 2. CHASSIS MOUNT DECK (Spans downward to frame top beds)
 translate([0, 0, -ez]) {
@@ -224,7 +253,7 @@ translate([power_piston_x, parts_y_axis, 4]) power_cylinder();
 // 3. INTERNAL ENGINE CAVITY (Pistons, clevis couplings, and pressure vessels)
 translate([0, 0, -ez * 2]) {
 // POWER PISTON CLUSTER WITH MECHANICAL HINGE PIN
-translate([power_piston_x, parts_y_axis, piston_joint_z - (power_piston_h / 2)]) {
+translate([power_piston_x, parts_y_axis, power_piston_base_z]) {
 power_piston(pin_d=1.5);
 translate([0, 0, power_piston_h / 2]) rotate([0, 90, 0])
 color("Silver") cylinder(d=1.5, h=power_piston_od + 1, center=true);
@@ -233,9 +262,9 @@ color("Silver") cylinder(d=1.5, h=power_piston_od + 1, center=true);
 translate([0, parts_y_axis, 0]) {
 translate([0, 0, disp_rod_joint_z - 6]) rotate([0, 0, 0]) rod_flange(pin_d=1.5);
 translate([0, 0, disp_rod_joint_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=1.5, h=14, center=true);
-translate([0, 0, disp_rod_joint_z - 4.0]) mirror([0, 0, 1])
-displacer_rod(abs((disp_rod_joint_z - 4.0) - (-axle_to_deck - 2 + (displacer_crank_r * cos(disp_angle)))));
-translate([0, 0, -axle_to_deck - (displacer_h / 2) - 2 + (displacer_crank_r * cos(disp_angle))]) displacer();
+translate([0, 0, disp_rod_attach_z]) mirror([0, 0, 1])
+displacer_rod(abs(disp_rod_len));
+translate([0, 0, disp_center_z]) displacer();
 }
 translate([0, parts_y_axis, -axle_to_deck - cyl_h]) tuna_tin_can();
 }

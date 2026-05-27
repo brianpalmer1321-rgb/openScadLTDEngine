@@ -49,8 +49,17 @@ explode_offset = 50;
 displacer_radial_clearance = 1.5; // mm gap to can wall (each side)
 displacer_axial_clearance = 2;    // mm at top and bottom of stroke
 displacer_stroke_ratio = 0.55;    // stroke as fraction of usable bore depth
+/* [Thermodynamic analysis] */
+T_hot_C = 50;               // hot-side boundary temp (°C), e.g. warm water on tuna can
+T_cold_C = 20;              // cold-side boundary temp (°C), e.g. room air at cold plate
+mean_pressure_kPa = 101.325; // mean charge pressure (kPa); atmospheric default
+engine_rpm = 120;           // assumed running speed for power estimates
+schmidt_phase_deg = 90;     // displacer lead over power piston (matches crank geometry)
+mechanical_efficiency = 0.65; // [0.3:0.95] fraction of indicated work reaching shaft
+dead_volume_scale = 1.0;    // scales geometry-derived clearance/dead volumes
 /* [Hidden] */
 $fn = 60;
+power_piston_axial_clearance = 1; // mm each end of power piston travel in bore
 flange_od = 12; flange_t = 2.0;
 cold_plate_t = 4;
 cold_plate_lip = 6;           // cold_plate_od = cyl_id + cold_plate_lip
@@ -92,6 +101,69 @@ power_cyl_id = sqrt(power_swept_vol / (3.14159265 * 0.25 * power_stroke));
 power_cyl_od = power_cyl_id + 4; power_cyl_h = power_stroke + 10;
 power_piston_od = power_cyl_id - 0.15; power_piston_h = 8;
 displacer_crank_r = displacer_stroke / 2; power_crank_r = power_stroke / 2;
+disp_can_bottom_z = -axle_to_deck - cyl_h;
+disp_can_top_z = -axle_to_deck - displacer_axial_clearance;
+disp_z_min = disp_can_bottom_z + displacer_axial_clearance + displacer_h / 2;
+disp_z_max = disp_can_top_z - displacer_axial_clearance - displacer_h / 2;
+disp_center_mid_z = (disp_z_min + disp_z_max) / 2;
+power_cyl_base_z = -axle_to_deck + cold_plate_t;
+power_cyl_bore_top_z = power_cyl_base_z + power_cyl_h;
+power_piston_base_min = power_cyl_base_z + power_piston_axial_clearance;
+power_piston_base_max = power_cyl_bore_top_z - power_piston_axial_clearance - power_piston_h;
+power_piston_base_mid = (power_piston_base_min + power_piston_base_max) / 2;
+disp_rod_blind_depth = 4.0; // blind hole depth in printed rod_flange
+
+// --- Schmidt / Carnot thermodynamic estimates (gamma-type LTD layout) ---
+// Closed-form Schmidt indicated work per revolution (J)
+function schmidt_work_per_rev(V_c0, V_e0, V_p, V_d, phase_deg, p_m) =
+    let(
+        K = (V_d + V_p) / 2 + V_c0 + V_e0,
+        B = K + sqrt(K * K - 0.25 * V_d * V_p * pow(sin(phase_deg), 2))
+    ) abs((PI * p_m * V_d * V_p * sin(phase_deg)) / (2 * B) * 1e-6);
+
+T_hot_K = T_hot_C + 273.15;
+T_cold_K = T_cold_C + 273.15;
+eta_carnot = (T_hot_K > T_cold_K) ? (1 - T_cold_K / T_hot_K) : 0;
+V_c0_dead = (3.14159265 / 4) * power_cyl_id * power_cyl_id
+    * (2 * power_piston_axial_clearance + 3) * dead_volume_scale;
+can_annulus_area = 3.14159265 / 4 * (can_inner_d * can_inner_d - displacer_d * displacer_d);
+V_e0_dead = (displacer_area * 2 * displacer_axial_clearance
+    + can_annulus_area * cyl_h * 0.35
+    + 3.14159265 / 4 * seal_id * seal_id * seal_h) * dead_volume_scale;
+vol_eff_displacer = displacer_swept_vol / (displacer_swept_vol + V_e0_dead);
+vol_eff_power = power_swept_vol / (power_swept_vol + V_c0_dead);
+schmidt_phase_factor = max(sin(schmidt_phase_deg), 0.01);
+schmidt_W_indicated = schmidt_work_per_rev(
+    V_c0_dead, V_e0_dead, power_swept_vol, displacer_swept_vol,
+    schmidt_phase_deg, mean_pressure_kPa);
+// Practical indicated η: Carnot ceiling reduced by dead-volume and phase factors
+eta_schmidt = eta_carnot * vol_eff_displacer * vol_eff_power * schmidt_phase_factor;
+schmidt_Q_hot = (eta_schmidt > 0) ? (schmidt_W_indicated / eta_schmidt) : 0;
+eta_shaft_est = eta_schmidt * mechanical_efficiency;
+shaft_power_W = schmidt_W_indicated * mechanical_efficiency * (engine_rpm / 60);
+heat_input_W = schmidt_Q_hot * (engine_rpm / 60);
+echo("=== LTD Stirling thermodynamic estimate ===");
+echo(str("Displacer swept volume: ", displacer_swept_vol / 1000, " cm³ (",
+    displacer_stroke, " mm stroke)"));
+echo(str("Power swept volume: ", power_swept_vol / 1000, " cm³ (",
+    power_stroke, " mm stroke, ID ", power_cyl_id, " mm)"));
+echo(str("Dead volume (cold / hot): ", V_c0_dead / 1000, " / ",
+    V_e0_dead / 1000, " cm³"));
+echo(str("Volume efficiency (displacer / power): ",
+    vol_eff_displacer * 100, " % / ", vol_eff_power * 100, " %"));
+echo(str("Temperatures: Th=", T_hot_C, "°C  Tc=", T_cold_C,
+    "°C  ΔT=", T_hot_C - T_cold_C, "°C"));
+echo(str("Carnot ceiling: ", eta_carnot * 100, " %"));
+echo(str("Estimated indicated efficiency: ", eta_schmidt * 100,
+    " %  (Carnot × volume × phase factors)"));
+echo(str("Estimated shaft efficiency: ", eta_shaft_est * 100,
+    " %  (× mechanical ", mechanical_efficiency * 100, " %)"));
+echo(str("Schmidt indicated work / rev: ", schmidt_W_indicated, " J"));
+echo(str("Estimated heat input / rev: ", schmidt_Q_hot, " J"));
+echo(str("At ", engine_rpm, " RPM: ~", shaft_power_W, " W shaft  |  ~",
+    heat_input_W, " W heat input"));
+echo("Note: ideal-cycle estimate only — measure heat and torque on a built engine for real η.");
+
 crank_web_outer = crank_web_x + crank_web_t / 2;
 crank_web_inner = crank_web_x - crank_web_t / 2;
 // Displacer crank webs at x = 0
@@ -142,6 +214,89 @@ shaft_tube_pwr_disp_len = shaft_tube_pwr_disp_x1 - shaft_tube_pwr_disp_x0;
 shaft_tube_disp_fly_len = shaft_tube_disp_fly_x1 - shaft_tube_disp_fly_x0;
 shaft_tube_fly_frame_len = shaft_tube_fly_frame_x1 - shaft_tube_fly_frame_x0;
 
+// --- Builder cut lengths (mm) ---
+shaft_seg_disp_web_l_len = abs(disp_web_l_out - disp_web_l_in);
+shaft_seg_disp_web_r_len = abs(disp_web_r_out - disp_web_r_in);
+shaft_seg_pwr_web_l_len = abs(pwr_web_l_out - pwr_web_l_in);
+shaft_seg_pwr_web_r_len = abs(pwr_web_r_out - pwr_web_r_in);
+crankshaft_rod_total = shaft_seg_flywheel_h + shaft_seg_disp_web_l_len + shaft_seg_disp_web_r_len
+    + shaft_seg_mid_h + shaft_seg_pwr_web_l_len + shaft_seg_pwr_web_r_len + shaft_seg_power_h;
+link_stick_in_disc = 2 * link_stick_bore_depth; // silver rod inserted into both green discs
+
+function disp_link_pin_span_at(deg) =
+    let(
+        dpy = -displacer_crank_r * sin(deg),
+        dpz = displacer_crank_r * cos(deg),
+        joint_z = dpz - sqrt(max(0.001, pow(disp_link_len, 2) - pow(dpy, 2)))
+    ) sqrt(pow(dpy, 2) + pow(dpz - joint_z, 2));
+
+function power_link_pin_span_at(deg) =
+    let(
+        pa = deg - 90,
+        ppy = -power_crank_r * sin(pa),
+        ppz = power_crank_r * cos(pa),
+        piston_pin_z = power_piston_base_mid + (power_stroke / 2) * cos(pa) + power_piston_h / 2
+    ) sqrt(pow(ppy, 2) + pow(ppz - piston_pin_z, 2));
+
+function displacer_shaft_len_at(deg) =
+    let(
+        dpz = displacer_crank_r * cos(deg),
+        dpy = -displacer_crank_r * sin(deg),
+        joint_z = dpz - sqrt(max(0.001, pow(disp_link_len, 2) - pow(dpy, 2))),
+        attach_z = joint_z - disp_rod_blind_depth,
+        disp_top_z = disp_center_mid_z + (displacer_stroke / 2) * cos(deg) + displacer_h / 2
+    ) attach_z - disp_top_z;
+
+function span_min(v0, v90, v180, v270) = min(v0, min(v90, min(v180, v270)));
+function span_max(v0, v90, v180, v270) = max(v0, max(v90, max(v180, v270)));
+
+disp_link_span_min = span_min(
+    disp_link_pin_span_at(0), disp_link_pin_span_at(90),
+    disp_link_pin_span_at(180), disp_link_pin_span_at(270));
+disp_link_span_max = span_max(
+    disp_link_pin_span_at(0), disp_link_pin_span_at(90),
+    disp_link_pin_span_at(180), disp_link_pin_span_at(270));
+power_link_span_min = span_min(
+    power_link_pin_span_at(0), power_link_pin_span_at(90),
+    power_link_pin_span_at(180), power_link_pin_span_at(270));
+power_link_span_max = span_max(
+    power_link_pin_span_at(0), power_link_pin_span_at(90),
+    power_link_pin_span_at(180), power_link_pin_span_at(270));
+displacer_shaft_min = span_min(
+    displacer_shaft_len_at(0), displacer_shaft_len_at(90),
+    displacer_shaft_len_at(180), displacer_shaft_len_at(270));
+displacer_shaft_max = span_max(
+    displacer_shaft_len_at(0), displacer_shaft_len_at(90),
+    displacer_shaft_len_at(180), displacer_shaft_len_at(270));
+linkage_rod_cut_len = disp_link_span_max + link_stick_in_disc;
+power_link_rod_cut_len = power_link_span_max + link_stick_in_disc;
+
+echo("=== Builder cut lengths (mm) ===");
+echo(str("Crankshaft ", rod_od, " mm rod — cut ", crankshaft_rod_total,
+    " mm total (or ", 7, " pieces below)"));
+echo(str("  Flywheel→displacer left: ", shaft_seg_flywheel_h));
+echo(str("  Displacer web stubs (×2): ", shaft_seg_disp_web_l_len, " each"));
+echo(str("  Displacer→power span: ", shaft_seg_mid_h));
+echo(str("  Power web stubs (×2): ", shaft_seg_pwr_web_l_len, " each"));
+echo(str("  Power→right bearing: ", shaft_seg_power_h));
+echo(str("Stiffener tubes (printed, reference): flywheel-frame ",
+    shaft_tube_fly_frame_len, ", disp-fly ", shaft_tube_disp_fly_len,
+    ", pwr-disp ", shaft_tube_pwr_disp_len, ", pwr-frame ", shaft_tube_pwr_frame_len));
+echo(str("Displacer connecting rod (", pin_d, " mm silver + discs) — pin-to-pin ",
+    disp_link_span_min, "–", disp_link_span_max,
+    " mm; cut stock ", linkage_rod_cut_len, " mm",
+    "  (Individual STL layout uses ", disp_link_len, " mm nominal)"));
+echo(str("Power connecting rod — pin-to-pin ", power_link_span_min, "–",
+    power_link_span_max, " mm; cut stock ", power_link_rod_cut_len, " mm",
+    "  (Individual STL layout uses ", power_link_len, " mm nominal)"));
+echo(str("Displacer shaft (", rod_od, " mm steel, flange→displacer): cut ",
+    displacer_shaft_max, " mm  (range ", displacer_shaft_min, "–",
+    displacer_shaft_max, "; ", disp_rod_blind_depth, " mm blind hole in flange)"));
+echo(str("At manual_angle=", manual_angle, "°: displacer shaft ",
+    displacer_shaft_len_at(manual_angle), " mm, disp link ",
+    disp_link_pin_span_at(manual_angle), " mm, power link ",
+    power_link_pin_span_at(manual_angle), " mm"));
+
 // ==========================================
 // 2. SCAD GEOMETRY MODULES
 // ==========================================
@@ -163,15 +318,19 @@ module insert_pockets() {
 // Shaft stub along X only (omit if length <= 0)
 module shaft_span_x(x_left, x_right) {
     span_h = x_right - x_left;
+    x_mid = (x_left + x_right) / 2;
     if (span_h > 0)
-        translate([(x_left + x_right) / 2, 0, 0]) rotate([0, 90, 0])
+        translate([axle_explode_x(x_mid), 0, 0])
+        translate([x_mid, 0, 0]) rotate([0, 90, 0])
             color("DimGrey") cylinder(d=rod_od, h=span_h, center=true);
 }
 // Stiffener tube on exposed rod: OD = crank collar, ID clears 3 mm rod (skip linkage fork gaps)
 module crank_shaft_tube_x(x_left, x_right) {
     len = x_right - x_left;
+    x_mid = (x_left + x_right) / 2;
     if (len > 0)
-        translate([(x_left + x_right) / 2, 0, 0]) rotate([0, 90, 0])
+        translate([axle_explode_x(x_mid), 0, 0])
+        translate([x_mid, 0, 0]) rotate([0, 90, 0])
             difference() {
                 color("SteelBlue") cylinder(d=collar_od, h=len, center=true);
                 cylinder(d=shaft_tube_id, h=len + 0.1, center=true);
@@ -363,6 +522,8 @@ module flywheel_geom() {
 // 3. MAIN PARAMETRIC LAYOUT ENGINE
 // ==========================================
 ez = (mode == "Exploded") ? explode_offset : 0;
+// Spread drive-train parts along crank axis (+X right); chassis still separates on −Z
+function axle_explode_x(x) = (mode == "Exploded") ? (x / right_support_x) * explode_offset : 0;
 engine_angle = (animate_engine == true) ? ($t * 360) : manual_angle;
 disp_angle = engine_angle; 
 piston_angle = engine_angle - 90; 
@@ -377,27 +538,16 @@ piston_pin_z = power_crank_r * cos(piston_angle);
 disp_rod_joint_z = disp_pin_z - sqrt(pow(disp_link_len, 2) - pow(disp_pin_y, 2));
 
 // Displacer vertical travel centered in tuna-can bore
-disp_can_bottom_z = -axle_to_deck - cyl_h;
-disp_can_top_z = -axle_to_deck - displacer_axial_clearance;
-disp_z_min = disp_can_bottom_z + displacer_axial_clearance + displacer_h / 2;
-disp_z_max = disp_can_top_z - displacer_axial_clearance - displacer_h / 2;
-disp_center_mid_z = (disp_z_min + disp_z_max) / 2;
 disp_center_z = disp_center_mid_z + (displacer_stroke / 2) * cos(disp_angle);
 disp_top_z = disp_center_z + displacer_h / 2;
 disp_flange_pin_z_offset = (flange_t + 2) / 2 + 4; // tab clevis pin height above flange center
-disp_rod_attach_z = disp_rod_joint_z - 4.0; // top of steel displacer rod (blind hole in flange)
+disp_rod_attach_z = disp_rod_joint_z - disp_rod_blind_depth; // top of steel displacer rod (blind hole in flange)
 disp_rod_len = disp_rod_attach_z - disp_top_z;
 // Linkage far-end link_end_disc pin is at disp_rod_joint_z (same as silver pin / flange hole)
 disp_link_len_eff = sqrt(pow(disp_pin_y, 2) + pow(disp_pin_z - disp_rod_joint_z, 2));
 disp_rot_x = atan2(disp_pin_y, disp_pin_z - disp_rod_joint_z);
 
 // Power piston vertical travel inside power cylinder bore
-power_piston_axial_clearance = 1;
-power_cyl_base_z = -axle_to_deck + cold_plate_t;
-power_cyl_bore_top_z = power_cyl_base_z + power_cyl_h;
-power_piston_base_min = power_cyl_base_z + power_piston_axial_clearance;
-power_piston_base_max = power_cyl_bore_top_z - power_piston_axial_clearance - power_piston_h;
-power_piston_base_mid = (power_piston_base_min + power_piston_base_max) / 2;
 power_piston_base_z = power_piston_base_mid + (power_stroke / 2) * cos(piston_angle);
 power_piston_pin_z = power_piston_base_z + power_piston_h / 2;
 power_link_len_eff = sqrt(pow(piston_pin_y, 2) + pow(piston_pin_z - power_piston_pin_z, 2));
@@ -416,10 +566,11 @@ if (mode == "Assembled" || mode == "Exploded") {
     crank_shaft_tube_x(shaft_tube_pwr_disp_x0, shaft_tube_pwr_disp_x1);
     crank_shaft_tube_x(shaft_tube_disp_fly_x0, shaft_tube_disp_fly_x1);
     crank_shaft_tube_x(shaft_tube_fly_frame_x0, shaft_tube_fly_frame_x1);
-    translate([flywheel_x, 0, 0]) rotate([engine_angle, 0, 0]) rotate([90, 0, 90]) flywheel_geom();
+    translate([flywheel_x + axle_explode_x(flywheel_x), 0, 0])
+        rotate([engine_angle, 0, 0]) rotate([90, 0, 90]) flywheel_geom();
     
     // DISPLACER KINEMATICS (X = 0) - DUAL WEB SANDWICH CLUSTER
-    translate([0, 0, 0]) {
+    translate([axle_explode_x(0), 0, 0]) {
         translate([-crank_web_x, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, disp_angle]) crank_arm(displacer_crank_r, collar_outward=-1);
         translate([crank_web_x, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, disp_angle]) crank_arm(displacer_crank_r, collar_outward=1);
         translate([0, disp_pin_y, disp_pin_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=pin_d, h=crank_pin_show_len, center=true);
@@ -427,7 +578,7 @@ if (mode == "Assembled" || mode == "Exploded") {
 translate([0, disp_pin_y, disp_pin_z]) rotate([-disp_rot_x, 0, 0]) linkage_rod(disp_link_len_eff);
 }
 // POWER PISTON KINEMATICS — dual web sandwich at power_piston_x
-translate([power_piston_x, 0, 0]) {
+translate([power_piston_x + axle_explode_x(power_piston_x), 0, 0]) {
 translate([-crank_web_x, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) crank_arm(power_crank_r, collar_outward=-1);
 translate([crank_web_x, 0, 0]) rotate([90, 0, 90]) rotate([0, 0, piston_angle]) crank_arm(power_crank_r, collar_outward=1);
 translate([0, piston_pin_y, piston_pin_z]) rotate([0, 90, 0]) color("Silver") cylinder(d=pin_d, h=crank_pin_show_len, center=true);

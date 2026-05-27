@@ -22,6 +22,7 @@ right_support_x = 42;
 disp_link_len = 40;   // nominal displacer rod (Individual export + kinematics seed)
 power_link_len = 25;  // nominal power rod (Individual export)
 power_stroke = 12;
+power_piston_h = 16;  // mm; pin at h/2; taller = deeper cup
 sv_ratio = 40.0;      // displacer:power swept-volume ratio
 /* [Hardware & Mounting] */
 pin_d = 1.5;          // silver linkage / clevis pins (mm)
@@ -49,6 +50,14 @@ explode_offset = 50;
 displacer_radial_clearance = 1.5; // mm gap to can wall (each side)
 displacer_axial_clearance = 2;    // mm at top and bottom of stroke
 displacer_stroke_ratio = 0.55;    // stroke as fraction of usable bore depth
+/* [Cold side] */
+cold_plate_od = 97.25;   // mm; sits on can mouth under snap ring
+cold_plate_t = 6.35;     // mm plate thickness
+ring_snap_groove_inset = 1.65;  // mm from cyl_id to groove radii (plastic-tuned)
+ring_plastic_clearance = 0.2;   // extra groove width for PETG/PLA flex
+ring_clamp_lip_t = 1.25;         // mm shelf thickness bearing on plate top
+ring_clamp_overhang = 1.5;       // mm lip extends inward over plate OD edge
+ring_outer_lip = 6;              // ring OD = cyl_id + ring_outer_lip
 /* [Thermodynamic analysis] */
 T_hot_C = 50;               // hot-side boundary temp (°C), e.g. warm water on tuna can
 T_cold_C = 20;              // cold-side boundary temp (°C), e.g. room air at cold plate
@@ -61,16 +70,21 @@ dead_volume_scale = 1.0;    // scales geometry-derived clearance/dead volumes
 $fn = 60;
 power_piston_axial_clearance = 1; // mm each end of power piston travel in bore
 flange_od = 12; flange_t = 2.0;
-cold_plate_t = 4;
-cold_plate_lip = 6;           // cold_plate_od = cyl_id + cold_plate_lip
-can_snap_groove_inset = 1.5;  // snap groove radii = cyl_id ± can_snap_groove_inset
 power_cyl_boss_h = 5;         // power cylinder pedestal on cold plate
 frame_w = 30; frame_t = 5; slot_tolerance = 0.2; parts_y_axis = 0;
 shaft_tube_bearing_gap = 0.5;
+ring_groove_h = 2.8;
+snap_ring_t = cold_plate_t + ring_clamp_lip_t + 0.3; // spans can groove through clamp lip
+ring_od = cyl_id + ring_outer_lip;
+ring_snap_groove_outer_d = cyl_id + ring_snap_groove_inset + ring_plastic_clearance;
+ring_snap_groove_inner_d = cyl_id - ring_snap_groove_inset - ring_plastic_clearance;
+ring_clamp_id = cold_plate_od + 1.0; // bore clearance over plate OD for assembly
+frame_slot_z = cold_plate_t / 2;     // frame slot cut height on thicker plate
 // Individual-mode export plate layout (build-plate positions)
+ind_x_snap_ring = -170;
 ind_x_cold = -65; ind_y_row1 = -35; ind_x_pwr_cyl = 65;
 ind_x_pwr_piston = 20; ind_y_row2 = 35;
-ind_x_disp_link = -30; ind_x_pwr_link = 30; ind_y_links = -75;
+ind_x_disp_link = 110; ind_x_pwr_link = 50; ind_y_links = -75;
 ind_x_frame = -65; ind_y_frame = 55;
 ind_x_flywheel = 45; ind_y_flywheel = 50;
 ind_x_disp_arm = 0; ind_x_pwr_arm = 20; ind_y_arms = -40;
@@ -80,9 +94,6 @@ ind_y_flange = -75; ind_y_tubes = -95;
 // 1. LTD OPTIMIZED THERMODYNAMIC CALCULATIONS
 // ==========================================
 can_inner_d = cyl_id - 2 * cyl_wall_t;
-cold_plate_od = cyl_id + cold_plate_lip;
-can_snap_groove_outer_d = cyl_id + can_snap_groove_inset;
-can_snap_groove_inner_d = cyl_id - can_snap_groove_inset;
 link_stick_bore_d = pin_d + 0.15;
 bearing_pocket_od = bearing_od + bearing_pocket_clearance;
 bearing_pocket_h = bearing_th + 0.1;
@@ -98,8 +109,10 @@ displacer_r = displacer_d / 2; displacer_area = 3.14159265 * displacer_r * displ
 displacer_swept_vol = displacer_area * displacer_stroke;
 power_swept_vol = displacer_swept_vol / sv_ratio;
 power_cyl_id = sqrt(power_swept_vol / (3.14159265 * 0.25 * power_stroke));
-power_cyl_od = power_cyl_id + 4; power_cyl_h = power_stroke + 10;
-power_piston_od = power_cyl_id - 0.15; power_piston_h = 8;
+power_cyl_od = power_cyl_id + 4;
+power_cyl_h = power_stroke + power_piston_h + 2 * power_piston_axial_clearance;
+power_piston_od = power_cyl_id - 0.15;
+power_piston_clevis_boss_h = 6; // fixed fork height at pin (original h=8 design)
 displacer_crank_r = displacer_stroke / 2; power_crank_r = power_stroke / 2;
 disp_can_bottom_z = -axle_to_deck - cyl_h;
 disp_can_top_z = -axle_to_deck - displacer_axial_clearance;
@@ -449,7 +462,7 @@ module rod_flange(pin_d=pin_d) {
 module displacer() { color("LightBlue") cylinder(d=displacer_d, h=displacer_h, center=true); }
 module power_piston(pin_d=pin_d) {
     pin_z = power_piston_h / 2;
-    boss_h = power_piston_h - 2;
+    boss_h = power_piston_clevis_boss_h;
     color("DimGrey") difference() {
         union() {
             difference() {
@@ -487,18 +500,35 @@ module cold_plate() {
             cylinder(d=cold_plate_od, h=cold_plate_t, center=false);
             translate([power_piston_x, parts_y_axis, 0]) cylinder(d=power_cyl_od + 4, h=power_cyl_boss_h, center=false);
         }
-        translate([0, 0, -0.5]) difference() {
-            cylinder(d=can_snap_groove_outer_d, h=2.5, center=false);
-            cylinder(d=can_snap_groove_inner_d, h=3.0, center=false);
-        }
         translate([0, 0, -1]) cylinder(d=seal_od, h=10, center=false);
         translate([power_piston_x, parts_y_axis, -1]) cylinder(d=power_cyl_id, h=15, center=false);
-        translate([left_support_x, parts_y_axis, 2]) cube([frame_t + slot_tolerance, frame_w + slot_tolerance, 2.5], center=true);
-        translate([right_support_x, parts_y_axis, 2]) cube([frame_t + slot_tolerance, frame_w + slot_tolerance, 2.5], center=true);
-        translate([left_support_x, parts_y_axis, 2]) mounting_holes(h_len=50);
-        translate([right_support_x, parts_y_axis, 2]) mounting_holes(h_len=50);
+        translate([left_support_x, parts_y_axis, frame_slot_z]) cube([frame_t + slot_tolerance, frame_w + slot_tolerance, 2.5], center=true);
+        translate([right_support_x, parts_y_axis, frame_slot_z]) cube([frame_t + slot_tolerance, frame_w + slot_tolerance, 2.5], center=true);
+        translate([left_support_x, parts_y_axis, frame_slot_z]) mounting_holes(h_len=50);
+        translate([right_support_x, parts_y_axis, frame_slot_z]) mounting_holes(h_len=50);
         translate([left_support_x, parts_y_axis, 0]) insert_pockets();
         translate([right_support_x, parts_y_axis, 0]) insert_pockets();
+    }
+}
+// Plastic ring: thin hollow shell; snaps on can rim, clamp shelf presses cold plate onto can mouth
+module can_snap_ring() {
+    clamp_z = cold_plate_t - 0.05;
+    color("LimeGreen") union() {
+        difference() {
+            cylinder(d=ring_od, h=snap_ring_t, center=false);
+            translate([0, 0, -0.1])
+                cylinder(d=ring_clamp_id, h=snap_ring_t + 0.2, center=false);
+            translate([0, 0, -0.1]) difference() {
+                cylinder(d=ring_snap_groove_outer_d, h=ring_groove_h + 0.2, center=false);
+                cylinder(d=ring_snap_groove_inner_d, h=ring_groove_h + 0.4, center=false);
+            }
+        }
+        difference() {
+            translate([0, 0, clamp_z])
+                cylinder(d=cold_plate_od + 2 * ring_clamp_overhang + 4, h=ring_clamp_lip_t, center=false);
+            translate([0, 0, clamp_z - 0.1])
+                cylinder(d=cold_plate_od - 0.8, h=ring_clamp_lip_t + 0.2, center=false);
+        }
     }
 }
 module flywheel_geom() {
@@ -522,6 +552,7 @@ module flywheel_geom() {
 // 3. MAIN PARAMETRIC LAYOUT ENGINE
 // ==========================================
 ez = (mode == "Exploded") ? explode_offset : 0;
+ring_ez = (mode == "Exploded") ? explode_offset * 0.4 : 0;
 // Spread drive-train parts along crank axis (+X right); chassis still separates on −Z
 function axle_explode_x(x) = (mode == "Exploded") ? (x / right_support_x) * explode_offset : 0;
 engine_angle = (animate_engine == true) ? ($t * 360) : manual_angle;
@@ -591,6 +622,7 @@ translate([left_support_x, parts_y_axis, 0]) support_frame();
 translate([right_support_x, parts_y_axis, 0]) mirror([1, 0, 0]) support_frame();
 translate([0, parts_y_axis, -axle_to_deck]) {
 cold_plate();
+translate([0, 0, ring_ez]) can_snap_ring();
 translate([power_piston_x, parts_y_axis, cold_plate_t]) power_cylinder();
 }
 }
@@ -616,6 +648,7 @@ translate([0, parts_y_axis, -axle_to_deck - cyl_h]) tuna_tin_can();
 } else if (mode == "Individual") {
 // Flat on bed; insert pockets and power-cylinder boss toward +Z
 translate([ind_x_cold, ind_y_row1, 0]) cold_plate();
+translate([ind_x_snap_ring, ind_y_row1, 0]) can_snap_ring();
 translate([ind_x_pwr_cyl, ind_y_row1, 0]) power_cylinder();
 translate([ind_x_pwr_piston, ind_y_row2, 0]) power_piston();
 translate([ind_x_disp_link, ind_y_links, pin_d]) rotate([0, 90, 0]) linkage_rod(disp_link_len);

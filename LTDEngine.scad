@@ -19,8 +19,8 @@ left_support_x = -42;
 flywheel_x = -22;
 power_piston_x = 22;
 right_support_x = 42;
-disp_link_len = 40;   // nominal displacer rod (Individual export + kinematics seed)
-power_link_len = 25;  // nominal power rod (Individual export)
+disp_link_len = 40;   // nominal displacer rod (kinematics seed; disc spacing in Individual)
+power_link_len = 25;  // legacy nominal; Individual exports green discs only (steel cut from echo)
 power_stroke = 12;
 power_piston_h = 16;  // mm; pin at h/2; taller = deeper cup
 sv_ratio = 40.0;      // displacer:power swept-volume ratio
@@ -80,15 +80,18 @@ ring_snap_groove_outer_d = cyl_id + ring_snap_groove_inset + ring_plastic_cleara
 ring_snap_groove_inner_d = cyl_id - ring_snap_groove_inset - ring_plastic_clearance;
 ring_clamp_id = cold_plate_od + 1.0; // bore clearance over plate OD for assembly
 frame_slot_z = cold_plate_t / 2;     // frame slot cut height on thicker plate
-// Individual-mode export plate layout (build-plate positions)
+// Individual-mode export plate layout (build-plate positions; 2 mm+ gaps)
 ind_x_snap_ring = -170;
 ind_x_cold = -65; ind_y_row1 = -35; ind_x_pwr_cyl = 65;
-ind_x_pwr_piston = 20; ind_y_row2 = 35;
-ind_x_disp_link = 110; ind_x_pwr_link = 50; ind_y_links = -75;
+ind_x_pwr_piston = 15; ind_y_row2 = 40;
+ind_x_link_discs = 90; ind_y_link_discs = -85; ind_link_disc_pitch = 12;
 ind_x_frame = -65; ind_y_frame = 55;
-ind_x_flywheel = 45; ind_y_flywheel = 50;
-ind_x_disp_arm = 0; ind_x_pwr_arm = 20; ind_y_arms = -40;
-ind_y_flange = -75; ind_y_tubes = -95;
+ind_x_flywheel = 120; ind_y_flywheel = 90;
+ind_x_disp_arm = 20; ind_x_pwr_arm = 58;
+ind_y_disp_arm = -58; ind_y_pwr_arm = -72;
+ind_x_flange = -105; ind_y_flange = -82;
+ind_y_tubes = -100;
+ind_x_tube0 = -155; ind_x_tube1 = -115; ind_x_tube2 = 55; ind_x_tube3 = 125;
 
 // ==========================================
 // 1. LTD OPTIMIZED THERMODYNAMIC CALCULATIONS
@@ -298,10 +301,10 @@ echo(str("Stiffener tubes (printed, reference): flywheel-frame ",
 echo(str("Displacer connecting rod (", pin_d, " mm silver + discs) — pin-to-pin ",
     disp_link_span_min, "–", disp_link_span_max,
     " mm; cut stock ", linkage_rod_cut_len, " mm",
-    "  (Individual STL layout uses ", disp_link_len, " mm nominal)"));
+    "  (Individual mode exports green discs only)"));
 echo(str("Power connecting rod — pin-to-pin ", power_link_span_min, "–",
     power_link_span_max, " mm; cut stock ", power_link_rod_cut_len, " mm",
-    "  (Individual STL layout uses ", power_link_len, " mm nominal)"));
+    "  (Individual mode exports green discs only)"));
 echo(str("Displacer shaft (", rod_od, " mm steel, flange→displacer): cut ",
     displacer_shaft_max, " mm  (range ", displacer_shaft_min, "–",
     displacer_shaft_max, "; ", disp_rod_blind_depth, " mm blind hole in flange)"));
@@ -403,15 +406,23 @@ module link_end_disc(pin_d, stick_rim_z=-1) {
                 cylinder(d=link_stick_bore_d, h=disc_r + link_stick_bore_depth, center=false);
     }
 }
-module linkage_rod(length, pin_d=pin_d) {
+module linkage_rod(length, pin_d=pin_d, show_steel=true) {
     disc_r = link_disc_d / 2;
-    color("Silver")
-        translate([0, 0, -length - disc_r - link_stick_bore_depth])
-        cylinder(d=pin_d, h=length + disc_r + 2 * link_stick_bore_depth, center=false);
+    if (show_steel)
+        color("Silver")
+            translate([0, 0, -length - disc_r - link_stick_bore_depth])
+            cylinder(d=pin_d, h=length + disc_r + 2 * link_stick_bore_depth, center=false);
     // Crank end: pin along X; stick into -Z rim
     link_end_disc(pin_d, stick_rim_z=-1);
     // Piston / flange end: same disc; stick into +Z rim (rod approaches from crank)
     translate([0, 0, -length]) link_end_disc(pin_d, stick_rim_z=1);
+}
+// Single fork disc flat on build plate (stick bore opening toward +Z)
+module link_disc_on_bed(stick_rim_z) {
+    fork_thin = pin_d + 1.2;
+    translate([0, 0, fork_thin / 2])
+        rotate([0, -90, 0])
+            link_end_disc(pin_d, stick_rim_z=stick_rim_z);
 }
 // collar_outward: +1 or -1, clamp extends away from web sandwich center only
 module crank_arm(radius, pin_d=pin_d, collar_outward=1) {
@@ -651,20 +662,23 @@ translate([ind_x_cold, ind_y_row1, 0]) cold_plate();
 translate([ind_x_snap_ring, ind_y_row1, 0]) can_snap_ring();
 translate([ind_x_pwr_cyl, ind_y_row1, 0]) power_cylinder();
 translate([ind_x_pwr_piston, ind_y_row2, 0]) power_piston();
-translate([ind_x_disp_link, ind_y_links, pin_d]) rotate([0, 90, 0]) linkage_rod(disp_link_len);
-translate([ind_x_pwr_link, ind_y_links, pin_d]) rotate([0, 90, 0]) linkage_rod(power_link_len);
+// Green link forks — 2×2 grid (8 mm OD + 3 mm gap); steel rod cut from echo lengths
+translate([ind_x_link_discs, ind_y_link_discs + ind_link_disc_pitch, 0]) link_disc_on_bed(-1);              // displacer, crank end
+translate([ind_x_link_discs + ind_link_disc_pitch, ind_y_link_discs + ind_link_disc_pitch, 0]) link_disc_on_bed(1); // displacer, flange end
+translate([ind_x_link_discs, ind_y_link_discs, 0]) link_disc_on_bed(-1);                                   // power, crank end
+translate([ind_x_link_discs + ind_link_disc_pitch, ind_y_link_discs, 0]) link_disc_on_bed(1);             // power, piston end
 // Lay frame on bed; bearing pocket opening faces +Z (no overhang into pocket)
 translate([ind_x_frame, ind_y_frame, 0]) rotate([90, 0, 0]) rotate([0, 0, 90]) support_frame();
 translate([ind_x_flywheel, ind_y_flywheel, flywheel_w/2]) flywheel_geom();
-translate([ind_x_disp_arm, ind_y_arms, 1.25]) rotate([0, 180, 0]) crank_arm(displacer_crank_r, collar_outward=-1);
-translate([ind_x_pwr_arm, ind_y_arms, 1.25]) crank_arm(power_crank_r, collar_outward=1);
+translate([ind_x_disp_arm, ind_y_disp_arm, 1.25]) rotate([0, 180, 0]) crank_arm(displacer_crank_r, collar_outward=-1);
+translate([ind_x_pwr_arm, ind_y_pwr_arm, 1.25]) crank_arm(power_crank_r, collar_outward=1);
 // Disc on bed, clevis tabs toward +Z (pin end up — no overhang into clevis)
-translate([0, ind_y_flange, (flange_t + 2) / 2]) rod_flange();
-// Four axle stiffener tubes (+X order: pwr-frame, pwr-disp, disp-fly, fly-frame)
-translate([ind_x_flywheel, ind_y_tubes, shaft_tube_pwr_frame_len / 2]) crank_shaft_tube(shaft_tube_pwr_frame_len);
-translate([ind_x_flywheel - 15, ind_y_tubes, shaft_tube_pwr_disp_len / 2]) crank_shaft_tube(shaft_tube_pwr_disp_len);
-translate([ind_x_flywheel - 30, ind_y_tubes, shaft_tube_disp_fly_len / 2]) crank_shaft_tube(shaft_tube_disp_fly_len);
-translate([ind_x_flywheel - 45, ind_y_tubes, shaft_tube_fly_frame_len / 2]) crank_shaft_tube(shaft_tube_fly_frame_len);
+translate([ind_x_flange, ind_y_flange, (flange_t + 2) / 2]) rod_flange();
+// Four axle stiffener tubes — spaced clear of link discs and flange
+translate([ind_x_tube0, ind_y_tubes, shaft_tube_fly_frame_len / 2]) crank_shaft_tube(shaft_tube_fly_frame_len);
+translate([ind_x_tube1, ind_y_tubes, shaft_tube_disp_fly_len / 2]) crank_shaft_tube(shaft_tube_disp_fly_len);
+translate([ind_x_tube2, ind_y_tubes, shaft_tube_pwr_disp_len / 2]) crank_shaft_tube(shaft_tube_pwr_disp_len);
+translate([ind_x_tube3, ind_y_tubes, shaft_tube_pwr_frame_len / 2]) crank_shaft_tube(shaft_tube_pwr_frame_len);
 }
 
 

@@ -58,7 +58,7 @@ The crankshaft is built from **3 mm rod** segments in the assembly (grey cylinde
 | Crankshaft segment (flywheel to displacer) | 1 | Flywheel hub to displacer crank station |
 | Crankshaft segment (displacer to power) | 1 | Displacer crank to power crank station |
 | Crankshaft segment (power to frame) | 1 | Power crank to right bearing |
-| Crankshaft stiffener tube | `crank_shaft_tube()` | 4 | Collar OD (`collar_od`), hollow for 3 mm rod; butt crank collars, flywheel hub (−X) and flywheel collar (+X), 0.5 mm shy of frame bearings |
+| Crankshaft segment (frame to flywheel) | 1 | Left bearing to flywheel (short stub) |
 
 ### Purchased / non-printed parts
 

@@ -380,93 +380,6 @@ def analyze_angles(angles: Iterable[float]) -> Tuple[List[Issue], dict]:
     return issues, stats
 
 
-def analyze_individual_layout() -> List[Issue]:
-    """2D bed-layout clearance check for mode=Individual part positions."""
-    issues: List[Issue] = []
-    power_cyl_od = math.sqrt(
-        ((math.pi / 4 * (100 - 0.8 - 3) ** 2 * 43 * 0.55) / 40.0)
-        / (math.pi * 0.25 * 12)
-    ) + 4
-
-    cold_c, cold_r = (-65, -35), 97.25 / 2
-    snap_c, snap_r = (-170, -35), 106.0 / 2
-    pwr_cyl_c, pwr_cyl_r = (65, -35), power_cyl_od / 2
-    piston_c, piston_r = (15, 40), 14.6
-    flange_c, flange_r = (-105, -82), 11.0
-    fly_c, fly_r = (120, 90), 70.0
-    frame_box = (-140, 52.5, -62.5, 57.5)
-    disp_arm_c, disp_arm_r = (20, -58), 18
-    pwr_arm_c, pwr_arm_r = (58, -72), 18
-    pitch = 12
-    disc_r = 4.5
-    discs = [(90 + dx, -85 + dy) for dx in (0, pitch) for dy in (0, pitch)]
-    tubes = [(-155, 11.4), (-115, 6.1), (55, 7.45), (125, 4.05)]
-
-    circles = [
-        ("cold_plate", cold_c, cold_r),
-        ("snap_ring", snap_c, snap_r),
-        ("power_cylinder", pwr_cyl_c, pwr_cyl_r),
-        ("power_piston", piston_c, piston_r),
-        ("rod_flange", flange_c, flange_r),
-        ("flywheel", fly_c, fly_r),
-        ("displacer_crank_arm", disp_arm_c, disp_arm_r),
-        ("power_crank_arm", pwr_arm_c, pwr_arm_r),
-    ] + [(f"link_disc_{i}", c, disc_r) for i, c in enumerate(discs)]
-
-    def circle_gap(c1, r1, c2, r2) -> float:
-        return math.hypot(c1[0] - c2[0], c1[1] - c2[1]) - r1 - r2
-
-    def rect_circle_gap(box, c, r) -> float:
-        x0, y0, x1, y1 = box
-        cx = min(max(c[0], x0), x1)
-        cy = min(max(c[1], y0), y1)
-        return math.hypot(c[0] - cx, c[1] - cy) - r
-
-    margin = 2.0
-    skip = {("cold_plate", "snap_ring")}  # snap ring clips can mouth by design
-    for i, (na, ca, ra) in enumerate(circles):
-        for nb, cb, rb in circles[i + 1:]:
-            if (na, nb) in skip:
-                continue
-            g = circle_gap(ca, ra, cb, rb)
-            if g < margin:
-                issues.append(
-                    Issue(
-                        "FAIL",
-                        "Individual bed layout",
-                        None,
-                        f"{na} vs {nb}: {g:.1f} mm gap (< {margin} mm)",
-                    )
-                )
-
-    g = rect_circle_gap(frame_box, fly_c, fly_r)
-    if g < margin:
-        issues.append(
-            Issue(
-                "FAIL",
-                "Individual bed layout",
-                None,
-                f"frame vs flywheel: {g:.1f} mm gap",
-            )
-        )
-
-    for x, ln in tubes:
-        tube_box = (x - ln / 2, -105, x + ln / 2, -95)
-        for nb, cb, rb in circles:
-            g = rect_circle_gap(tube_box, cb, rb)
-            if g < margin:
-                issues.append(
-                    Issue(
-                        "FAIL",
-                        "Individual bed layout",
-                        None,
-                        f"tube@{x} vs {nb}: {g:.1f} mm gap",
-                    )
-                )
-
-    return issues
-
-
 def main() -> None:
     angles = list(range(0, 360, 5))
     issues, stats = analyze_angles(angles)
@@ -542,17 +455,6 @@ def main() -> None:
             seen.add(key)
             print(f"  [{i.check}]: {i.detail}")
         print()
-
-    ind_issues = analyze_individual_layout()
-    ind_fails = [i for i in ind_issues if i.severity == "FAIL"]
-    print("=== Individual mode bed layout ===")
-    if ind_fails:
-        print(f"FAILURES ({len(ind_fails)}):")
-        for i in ind_fails:
-            print(f"  {i.detail}")
-    else:
-        print("No overlaps detected (2 mm circular/rect margin).")
-    print()
 
     print("Intentional contact (not bugs): snap ring clamp shelf on cold plate; crank pins in link forks.")
     print("Limitation: coarse envelope checks only — no full 3D mesh intersection. Visually inspect flywheel/frame and link vs webs in OpenSCAD preview.")

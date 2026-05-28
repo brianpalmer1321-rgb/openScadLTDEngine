@@ -51,12 +51,12 @@ displacer_radial_clearance = 1.5; // mm gap to can wall (each side)
 displacer_axial_clearance = 2;    // mm at top and bottom of stroke
 displacer_stroke_ratio = 0.55;    // stroke as fraction of usable bore depth
 /* [Cold side] */
-cold_plate_od = 97.25;   // mm; sits on can mouth under snap ring
-cold_plate_t = 6.35;     // mm plate thickness
+cold_plate_od = 97.25;   // mm; aluminum plate OD (machined; STL optional)
+cold_plate_t = 6.35;     // mm aluminum plate thickness
 ring_snap_groove_inset = 1.65;  // mm from cyl_id to groove radii (plastic-tuned)
 ring_plastic_clearance = 0.2;   // extra groove width for PETG/PLA flex
-ring_clamp_lip_t = 1.25;         // mm shelf thickness bearing on plate top
-ring_clamp_overhang = 1.5;       // mm lip extends inward over plate OD edge
+ring_clamp_lip_t = 1.75;         // mm shelf thickness bearing on plate top
+ring_clamp_overhang = 2.5;       // mm lip extends inward over plate OD edge
 ring_outer_lip = 6;              // ring OD = cyl_id + ring_outer_lip
 /* [Thermodynamic analysis] */
 T_hot_C = 50;               // hot-side boundary temp (°C), e.g. warm water on tuna can
@@ -79,6 +79,7 @@ ring_od = cyl_id + ring_outer_lip;
 ring_snap_groove_outer_d = cyl_id + ring_snap_groove_inset + ring_plastic_clearance;
 ring_snap_groove_inner_d = cyl_id - ring_snap_groove_inset - ring_plastic_clearance;
 ring_clamp_id = cold_plate_od + 1.0; // bore clearance over plate OD for assembly
+ring_clamp_inner_d = cold_plate_od - 2 * ring_clamp_overhang; // inward hook over plate rim
 frame_slot_z = cold_plate_t / 2;     // frame slot cut height on thicker plate
 // Individual-mode export plate layout (build-plate positions; 2 mm+ gaps)
 ind_x_snap_ring = -170;
@@ -506,7 +507,7 @@ module tuna_tin_can() {
     }
 }
 module cold_plate() {
-    difference() {
+    color("Silver") difference() {
         union() {
             cylinder(d=cold_plate_od, h=cold_plate_t, center=false);
             translate([power_piston_x, parts_y_axis, 0]) cylinder(d=power_cyl_od + 4, h=power_cyl_boss_h, center=false);
@@ -536,9 +537,9 @@ module can_snap_ring() {
         }
         difference() {
             translate([0, 0, clamp_z])
-                cylinder(d=cold_plate_od + 2 * ring_clamp_overhang + 4, h=ring_clamp_lip_t, center=false);
+                cylinder(d=ring_clamp_id, h=ring_clamp_lip_t, center=false);
             translate([0, 0, clamp_z - 0.1])
-                cylinder(d=cold_plate_od - 0.8, h=ring_clamp_lip_t + 0.2, center=false);
+                cylinder(d=ring_clamp_inner_d, h=ring_clamp_lip_t + 0.2, center=false);
         }
     }
 }
@@ -660,25 +661,26 @@ translate([0, parts_y_axis, -axle_to_deck - cyl_h]) tuna_tin_can();
 // Flat on bed; insert pockets and power-cylinder boss toward +Z
 translate([ind_x_cold, ind_y_row1, 0]) cold_plate();
 translate([ind_x_snap_ring, ind_y_row1, 0]) can_snap_ring();
-translate([ind_x_pwr_cyl, ind_y_row1, 0]) power_cylinder();
-translate([ind_x_pwr_piston, ind_y_row2, 0]) power_piston();
+//translate([ind_x_pwr_cyl, ind_y_row1, 0]) power_cylinder();
+//translate([ind_x_pwr_piston, ind_y_row2, 0]) power_piston();
 // Green link forks — 2×2 grid (8 mm OD + 3 mm gap); steel rod cut from echo lengths
-translate([ind_x_link_discs, ind_y_link_discs + ind_link_disc_pitch, 0]) link_disc_on_bed(-1);              // displacer, crank end
-translate([ind_x_link_discs + ind_link_disc_pitch, ind_y_link_discs + ind_link_disc_pitch, 0]) link_disc_on_bed(1); // displacer, flange end
-translate([ind_x_link_discs, ind_y_link_discs, 0]) link_disc_on_bed(-1);                                   // power, crank end
-translate([ind_x_link_discs + ind_link_disc_pitch, ind_y_link_discs, 0]) link_disc_on_bed(1);             // power, piston end
+//translate([ind_x_link_discs, ind_y_link_discs + ind_link_disc_pitch, 0]) link_disc_on_bed(-1);              // displacer, crank end
+//translate([ind_x_link_discs + ind_link_disc_pitch, ind_y_link_discs + ind_link_disc_pitch, 0]) link_disc_on_bed(1); // displacer, flange end
+//translate([ind_x_link_discs, ind_y_link_discs, 0]) link_disc_on_bed(-1);                                   // power, crank end
+//translate([ind_x_link_discs + ind_link_disc_pitch, ind_y_link_discs, 0]) link_disc_on_bed(1);             // power, piston end
 // Lay frame on bed; bearing pocket opening faces +Z (no overhang into pocket)
-translate([ind_x_frame, ind_y_frame, 0]) rotate([90, 0, 0]) rotate([0, 0, 90]) support_frame();
-translate([ind_x_flywheel, ind_y_flywheel, flywheel_w/2]) flywheel_geom();
-translate([ind_x_disp_arm, ind_y_disp_arm, 1.25]) rotate([0, 180, 0]) crank_arm(displacer_crank_r, collar_outward=-1);
-translate([ind_x_pwr_arm, ind_y_pwr_arm, 1.25]) crank_arm(power_crank_r, collar_outward=1);
+//translate([ind_x_frame, ind_y_frame, 0]) rotate([90, 0, 0]) rotate([0, 0, 90]) support_frame();
+//translate([ind_x_flywheel, ind_y_flywheel, flywheel_w/2]) flywheel_geom();
+//translate([ind_x_disp_arm, ind_y_disp_arm, 1.25]) rotate([0, 180, 0]) crank_arm(displacer_crank_r, collar_outward=-1);
+//translate([ind_x_pwr_arm, ind_y_pwr_arm, 1.25]) crank_arm(power_crank_r, collar_outward=1);
 // Disc on bed, clevis tabs toward +Z (pin end up — no overhang into clevis)
-translate([ind_x_flange, ind_y_flange, (flange_t + 2) / 2]) rod_flange();
+//translate([ind_x_flange, ind_y_flange, (flange_t + 2) / 2]) rod_flange();
 // Four axle stiffener tubes — spaced clear of link discs and flange
-translate([ind_x_tube0, ind_y_tubes, shaft_tube_fly_frame_len / 2]) crank_shaft_tube(shaft_tube_fly_frame_len);
-translate([ind_x_tube1, ind_y_tubes, shaft_tube_disp_fly_len / 2]) crank_shaft_tube(shaft_tube_disp_fly_len);
-translate([ind_x_tube2, ind_y_tubes, shaft_tube_pwr_disp_len / 2]) crank_shaft_tube(shaft_tube_pwr_disp_len);
-translate([ind_x_tube3, ind_y_tubes, shaft_tube_pwr_frame_len / 2]) crank_shaft_tube(shaft_tube_pwr_frame_len);
+//translate([ind_x_tube0, ind_y_tubes, shaft_tube_fly_frame_len / 2]) crank_shaft_tube(shaft_tube_fly_frame_len);
+//translate([ind_x_tube1, ind_y_tubes, shaft_tube_disp_fly_len / 2]) crank_shaft_tube(shaft_tube_disp_fly_len);
+//translate([ind_x_tube2, ind_y_tubes, shaft_tube_pwr_disp_len / 2]) crank_shaft_tube(shaft_tube_pwr_disp_len);
+//translate([ind_x_tube3, ind_y_tubes, shaft_tube_pwr_frame_len / 2]) crank_shaft_tube(shaft_tube_pwr_frame_len);
+
 }
 
 

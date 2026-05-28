@@ -31,11 +31,17 @@ Parametric 3D model of a **Low Temperature Differential (LTD) Stirling engine** 
 
 Names below match the OpenSCAD modules and assembly labels used in `LTDEngine.scad`. Use **Individual** mode to export STLs for printed parts.
 
+### Fabricated parts
+
+| Part name | Module | Qty | Role |
+|-----------|--------|-----|------|
+| Cold plate | `cold_plate()` | 1 | **Aluminum** top deck (default 97.25 mm OD × 6.35 mm); mounts seal bore, power cylinder boss, frame slots, and heat-set inserts. Machined from plate stock; STL in Individual mode is for reference or optional printing. |
+
 ### Printed parts
 
 | Part name | Module | Qty | Role |
 |-----------|--------|-----|------|
-| Cold plate | `cold_plate()` | 1 | Top deck; mounts displacer can, power cylinder, and frames |
+| Can snap ring | `can_snap_ring()` | 1 | Plastic ring; snaps on can rim and clamps cold plate onto can mouth |
 | Support frame (left) | `support_frame()` | 1 | Crankshaft bearing tower, left side |
 | Support frame (right) | `support_frame()` | 1 | Crankshaft bearing tower, right side (mirror of left) |
 | Flywheel | `flywheel_geom()` | 1 | Main inertia wheel on crankshaft |
@@ -87,7 +93,8 @@ When `mode = "Individual"`, parts are placed on the build plate in this order (l
 
 | Part name | Approx. layout position |
 |-----------|-------------------------|
-| Cold plate (insert pockets up) | Left |
+| Cold plate (aluminum; insert pockets up) | Left — optional STL export |
+| Can snap ring | Left of cold plate |
 | Power cylinder | Right of cold plate |
 | Power piston | Center |
 | Displacer connecting rod | Lower left |
@@ -104,4 +111,5 @@ Export each solid separately from the rendered view, or split the file into per-
 
 - Swept-volume ratio defaults to **40:1** (displacer → power cylinder sizing).
 - Power piston runs **90°** out of phase with the displacer crank.
-- Hardware assumptions: M3 mounting screws, M3 heat-set inserts in the cold plate, 8×4×3 mm bearings on the crank axle.
+- Hardware assumptions: M3 mounting screws, M3 heat-set inserts in the **aluminum** cold plate, 8×4×3 mm bearings on the crank axle.
+- Cold plate defaults: **97.25 mm OD × 6.35 mm** (`cold_plate_od`, `cold_plate_t` in Customizer). Snap ring clamp lip holds it on the can mouth.

@@ -13,15 +13,14 @@ PI = math.pi
 CYL_ID = 100.0
 CYL_WALL_T = 0.40
 CYL_H = 47.0
-AXLE_TO_DECK = 75.0
+AXLE_TO_DECK = 80.0
 FLYWHEEL_D = 140.0
 FLYWHEEL_W = 8.0
 FLYWHEEL_X = -22.0
-LEFT_SUPPORT_X = -42.0
-RIGHT_SUPPORT_X = 42.0
+LEFT_SUPPORT_X = -40.0
+RIGHT_SUPPORT_X = 40.0
 POWER_PISTON_X = 22.0
 DISP_LINK_LEN = 40.0
-POWER_LINK_LEN = 25.0  # Individual STL nominal only
 POWER_STROKE = 12.0
 POWER_PISTON_H = 16.0
 SV_RATIO = 40.0
@@ -83,6 +82,14 @@ def derived() -> dict:
     power_piston_base_mid = (power_piston_base_min + power_piston_base_max) / 2
     crank_web_outer = CRANK_WEB_X + CRANK_WEB_T / 2
     fork_thin = PIN_D + 1.2
+    displacer_shaft_len = (
+        (displacer_crank_r - DISP_LINK_LEN - DISP_ROD_BLIND_DEPTH)
+        - (disp_center_mid_z + displacer_stroke / 2 + displacer_h / 2)
+    )
+    power_link_len = abs(
+        power_crank_r
+        - (power_piston_base_mid + POWER_STROKE / 2 + POWER_PISTON_H / 2)
+    )
     return {
         "can_inner_d": can_inner_d,
         "displacer_d": displacer_d,
@@ -103,6 +110,8 @@ def derived() -> dict:
         "power_piston_base_mid": power_piston_base_mid,
         "crank_web_outer": crank_web_outer,
         "fork_thin": fork_thin,
+        "displacer_shaft_len": displacer_shaft_len,
+        "power_link_len": power_link_len,
     }
 
 
@@ -115,32 +124,21 @@ def kinematics(deg: float, d: dict) -> dict:
     piston_pin_y = -d["power_crank_r"] * math.sin(piston_angle)
     piston_pin_z = d["power_crank_r"] * math.cos(piston_angle)
 
-    under = DISP_LINK_LEN * DISP_LINK_LEN - disp_pin_y * disp_pin_y
-    disp_joint_ok = under > 0
-    disp_rod_joint_z = disp_pin_z - math.sqrt(max(0.001, under))
+    disp_under = DISP_LINK_LEN * DISP_LINK_LEN - disp_pin_y * disp_pin_y
+    disp_joint_ok = disp_under > 0
+    disp_rod_joint_z = disp_pin_z - math.sqrt(max(0.001, disp_under))
 
-    disp_center_z = d["disp_center_mid_z"] + (d["displacer_stroke"] / 2) * math.cos(
-        disp_angle
-    )
-    disp_top_z = disp_center_z + d["displacer_h"] / 2
-    disp_bottom_z = disp_center_z - d["displacer_h"] / 2
     disp_rod_attach_z = disp_rod_joint_z - DISP_ROD_BLIND_DEPTH
-    disp_rod_len = disp_rod_attach_z - disp_top_z
+    disp_top_z = disp_rod_attach_z - d["displacer_shaft_len"]
+    disp_center_z = disp_top_z - d["displacer_h"] / 2
+    disp_bottom_z = disp_center_z - d["displacer_h"] / 2
 
-    power_piston_base_z = d["power_piston_base_mid"] + (POWER_STROKE / 2) * math.cos(
-        piston_angle
-    )
-    power_piston_pin_z = power_piston_base_z + POWER_PISTON_H / 2
+    power_under = d["power_link_len"] * d["power_link_len"] - piston_pin_y * piston_pin_y
+    power_joint_ok = power_under > 0
+    power_piston_pin_z = piston_pin_z - math.sqrt(max(0.001, power_under))
+    power_piston_base_z = power_piston_pin_z - POWER_PISTON_H / 2
     power_piston_top_z = power_piston_base_z + POWER_PISTON_H
     power_piston_bottom_z = power_piston_base_z
-
-    power_link_len_eff = math.hypot(
-        piston_pin_y, piston_pin_z - power_piston_pin_z
-    )
-
-    disp_link_len_eff = math.hypot(
-        disp_pin_y, disp_pin_z - disp_rod_joint_z
-    )
 
     return {
         "disp_pin_y": disp_pin_y,
@@ -148,29 +146,20 @@ def kinematics(deg: float, d: dict) -> dict:
         "piston_pin_y": piston_pin_y,
         "piston_pin_z": piston_pin_z,
         "disp_joint_ok": disp_joint_ok,
+        "power_joint_ok": power_joint_ok,
         "disp_rod_joint_z": disp_rod_joint_z,
         "disp_center_z": disp_center_z,
         "disp_top_z": disp_top_z,
         "disp_bottom_z": disp_bottom_z,
         "disp_rod_attach_z": disp_rod_attach_z,
-        "disp_rod_len": disp_rod_len,
+        "disp_rod_len": d["displacer_shaft_len"],
         "power_piston_base_z": power_piston_base_z,
         "power_piston_pin_z": power_piston_pin_z,
         "power_piston_top_z": power_piston_top_z,
         "power_piston_bottom_z": power_piston_bottom_z,
-        "power_link_len_eff": power_link_len_eff,
-        "disp_link_len_eff": disp_link_len_eff,
+        "power_link_len_eff": d["power_link_len"],
+        "disp_link_len_eff": DISP_LINK_LEN,
     }
-
-
-def power_link_span(deg: float, d: dict) -> float:
-    pa = math.radians(deg - 90)
-    ppy = -d["power_crank_r"] * math.sin(pa)
-    ppz = d["power_crank_r"] * math.cos(pa)
-    piston_pin_z = d["power_piston_base_mid"] + (POWER_STROKE / 2) * math.cos(
-        pa
-    ) + POWER_PISTON_H / 2
-    return math.hypot(ppy, ppz - piston_pin_z)
 
 
 def analyze_angles(angles: Iterable[float]) -> Tuple[List[Issue], dict]:
@@ -203,6 +192,15 @@ def analyze_angles(angles: Iterable[float]) -> Tuple[List[Issue], dict]:
                     "displacer slider-crank",
                     deg,
                     f"|disp_pin_y|={abs(k['disp_pin_y']):.3f} mm > disp_link_len={DISP_LINK_LEN} mm",
+                )
+            )
+        if not k["power_joint_ok"]:
+            issues.append(
+                Issue(
+                    "FAIL",
+                    "power slider-crank",
+                    deg,
+                    f"|piston_pin_y|={abs(k['piston_pin_y']):.3f} mm > power_link_len={d['power_link_len']:.3f} mm",
                 )
             )
 
@@ -336,28 +334,10 @@ def analyze_angles(angles: Iterable[float]) -> Tuple[List[Issue], dict]:
             )
         )
 
-    # Individual-mode STL nominal rod lengths vs assembled kinematics
-    pmin = min(power_link_span(a, d) for a in angles)
-    pmax = max(power_link_span(a, d) for a in angles)
-    if POWER_LINK_LEN < pmin - 0.5:
-        issues.append(
-            Issue(
-                "FAIL",
-                "Individual power rod export",
-                None,
-                f"STL nominal {POWER_LINK_LEN} mm vs assembled pin span {pmin:.2f}–{pmax:.2f} mm",
-            )
-        )
-    issues.append(
-        Issue(
-            "INFO",
-            "assembled power link length",
-            None,
-            f"dynamic pin span {stats['power_link_len_min']:.2f}–{stats['power_link_len_max']:.2f} mm (Assembled uses power_link_len_eff)",
-        )
-    )
-    stats["power_link_span_min"] = pmin
-    stats["power_link_span_max"] = pmax
+    stats["power_link_span_min"] = d["power_link_len"]
+    stats["power_link_span_max"] = d["power_link_len"]
+    stats["displacer_shaft_len"] = d["displacer_shaft_len"]
+    stats["power_link_len"] = d["power_link_len"]
     stats["radial_piston_clearance_mm"] = radial_piston_clear
     if stats["piston_bottom_clearance_min"] < 0.05:
         issues.append(
@@ -399,10 +379,10 @@ def main() -> None:
     print()
     print("Kinematic ranges:")
     print(
-        f"  Displacer steel rod (flange→displacer): {stats['disp_rod_len_min']:.3f}–{stats['disp_rod_len_max']:.3f} mm"
+        f"  Displacer steel rod (flange→displacer): {stats['displacer_shaft_len']:.3f} mm (fixed)"
     )
     print(
-        f"  Assembled power link pin span:          {stats['power_link_len_min']:.3f}–{stats['power_link_len_max']:.3f} mm"
+        f"  Assembled power link pin span:          {stats['power_link_len']:.3f} mm (fixed)"
     )
     print(
         f"  Displacer top clearance (min):          {stats['disp_top_clearance_min']:.3f} mm"

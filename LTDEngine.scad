@@ -2,6 +2,7 @@
 // Customizer Panel Settings
 /* [Rendering Options] */
 mode = "Assembled"; // [Individual, Assembled, Exploded]
+export_part = "All on plate"; // [All on plate, Snap ring, Cold plate ref, Power cylinder, Power piston, Link discs x4, Support frame, Flywheel, Displacer crank arm, Power crank arm, Rod flange, Stiffener tubes x4]
 /* [Kinematics & Animation] */
 animate_engine = true; // [true, false]
 manual_angle = 45; // [0:360]
@@ -93,6 +94,8 @@ ind_y_disp_arm = -58; ind_y_pwr_arm = -72;
 ind_x_flange = -105; ind_y_flange = -82;
 ind_y_tubes = -100;
 ind_x_tube0 = -155; ind_x_tube1 = -115; ind_x_tube2 = 55; ind_x_tube3 = 125;
+ind_on_plate = export_part == "All on plate";
+function export_show(name) = ind_on_plate || export_part == name;
 
 // ==========================================
 // 1. LTD OPTIMIZED THERMODYNAMIC CALCULATIONS
@@ -658,29 +661,54 @@ translate([0, 0, disp_center_z]) displacer();
 translate([0, parts_y_axis, -axle_to_deck - cyl_h]) tuna_tin_can();
 }
 } else if (mode == "Individual") {
-// Flat on bed; insert pockets and power-cylinder boss toward +Z
-translate([ind_x_cold, ind_y_row1, 0]) cold_plate();
-translate([ind_x_snap_ring, ind_y_row1, 0]) can_snap_ring();
-//translate([ind_x_pwr_cyl, ind_y_row1, 0]) power_cylinder();
-//translate([ind_x_pwr_piston, ind_y_row2, 0]) power_piston();
-// Green link forks — 2×2 grid (8 mm OD + 3 mm gap); steel rod cut from echo lengths
-//translate([ind_x_link_discs, ind_y_link_discs + ind_link_disc_pitch, 0]) link_disc_on_bed(-1);              // displacer, crank end
-//translate([ind_x_link_discs + ind_link_disc_pitch, ind_y_link_discs + ind_link_disc_pitch, 0]) link_disc_on_bed(1); // displacer, flange end
-//translate([ind_x_link_discs, ind_y_link_discs, 0]) link_disc_on_bed(-1);                                   // power, crank end
-//translate([ind_x_link_discs + ind_link_disc_pitch, ind_y_link_discs, 0]) link_disc_on_bed(1);             // power, piston end
-// Lay frame on bed; bearing pocket opening faces +Z (no overhang into pocket)
-//translate([ind_x_frame, ind_y_frame, 0]) rotate([90, 0, 0]) rotate([0, 0, 90]) support_frame();
-//translate([ind_x_flywheel, ind_y_flywheel, flywheel_w/2]) flywheel_geom();
-//translate([ind_x_disp_arm, ind_y_disp_arm, 1.25]) rotate([0, 180, 0]) crank_arm(displacer_crank_r, collar_outward=-1);
-//translate([ind_x_pwr_arm, ind_y_pwr_arm, 1.25]) crank_arm(power_crank_r, collar_outward=1);
-// Disc on bed, clevis tabs toward +Z (pin end up — no overhang into clevis)
-//translate([ind_x_flange, ind_y_flange, (flange_t + 2) / 2]) rod_flange();
-// Four axle stiffener tubes — spaced clear of link discs and flange
-//translate([ind_x_tube0, ind_y_tubes, shaft_tube_fly_frame_len / 2]) crank_shaft_tube(shaft_tube_fly_frame_len);
-//translate([ind_x_tube1, ind_y_tubes, shaft_tube_disp_fly_len / 2]) crank_shaft_tube(shaft_tube_disp_fly_len);
-//translate([ind_x_tube2, ind_y_tubes, shaft_tube_pwr_disp_len / 2]) crank_shaft_tube(shaft_tube_pwr_disp_len);
-//translate([ind_x_tube3, ind_y_tubes, shaft_tube_pwr_frame_len / 2]) crank_shaft_tube(shaft_tube_pwr_frame_len);
-
+// export_part dropdown: "All on plate" uses layout below; else single part at origin for STL
+if (export_show("Cold plate ref"))
+    translate(ind_on_plate ? [ind_x_cold, ind_y_row1, 0] : [0, 0, 0]) cold_plate();
+if (export_show("Snap ring"))
+    translate(ind_on_plate ? [ind_x_snap_ring, ind_y_row1, 0] : [0, 0, 0]) can_snap_ring();
+if (export_show("Power cylinder"))
+    translate(ind_on_plate ? [ind_x_pwr_cyl, ind_y_row1, 0] : [0, 0, 0]) power_cylinder();
+if (export_show("Power piston"))
+    translate(ind_on_plate ? [ind_x_pwr_piston, ind_y_row2, 0] : [0, 0, 0]) power_piston();
+if (export_show("Link discs x4")) {
+    link_ox = ind_on_plate ? ind_x_link_discs : -ind_link_disc_pitch / 2;
+    link_oy = ind_on_plate ? ind_y_link_discs : -ind_link_disc_pitch / 2;
+    translate([link_ox, link_oy + ind_link_disc_pitch, 0]) link_disc_on_bed(-1);
+    translate([link_ox + ind_link_disc_pitch, link_oy + ind_link_disc_pitch, 0]) link_disc_on_bed(1);
+    translate([link_ox, link_oy, 0]) link_disc_on_bed(-1);
+    translate([link_ox + ind_link_disc_pitch, link_oy, 0]) link_disc_on_bed(1);
+}
+if (export_show("Support frame"))
+    translate(ind_on_plate ? [ind_x_frame, ind_y_frame, 0] : [0, 0, 0])
+        rotate([90, 0, 0]) rotate([0, 0, 90]) support_frame();
+if (export_show("Flywheel"))
+    translate(ind_on_plate ? [ind_x_flywheel, ind_y_flywheel, flywheel_w / 2] : [0, 0, flywheel_w / 2])
+        flywheel_geom();
+if (export_show("Displacer crank arm"))
+    translate(ind_on_plate ? [ind_x_disp_arm, ind_y_disp_arm, 1.25] : [0, 0, 1.25])
+        rotate([0, 180, 0]) crank_arm(displacer_crank_r, collar_outward=-1);
+if (export_show("Power crank arm"))
+    translate(ind_on_plate ? [ind_x_pwr_arm, ind_y_pwr_arm, 1.25] : [0, 0, 1.25])
+        crank_arm(power_crank_r, collar_outward=1);
+if (export_show("Rod flange"))
+    translate(ind_on_plate ? [ind_x_flange, ind_y_flange, (flange_t + 2) / 2] : [0, 0, (flange_t + 2) / 2])
+        rod_flange();
+if (export_show("Stiffener tubes x4")) {
+    if (ind_on_plate) {
+        translate([ind_x_tube0, ind_y_tubes, shaft_tube_fly_frame_len / 2]) crank_shaft_tube(shaft_tube_fly_frame_len);
+        translate([ind_x_tube1, ind_y_tubes, shaft_tube_disp_fly_len / 2]) crank_shaft_tube(shaft_tube_disp_fly_len);
+        translate([ind_x_tube2, ind_y_tubes, shaft_tube_pwr_disp_len / 2]) crank_shaft_tube(shaft_tube_pwr_disp_len);
+        translate([ind_x_tube3, ind_y_tubes, shaft_tube_pwr_frame_len / 2]) crank_shaft_tube(shaft_tube_pwr_frame_len);
+    } else {
+        translate([shaft_tube_fly_frame_len / 2, 0, 0]) crank_shaft_tube(shaft_tube_fly_frame_len);
+        translate([shaft_tube_fly_frame_len + 3 + shaft_tube_disp_fly_len / 2, 0, 0]) crank_shaft_tube(shaft_tube_disp_fly_len);
+        translate([shaft_tube_fly_frame_len + 3 + shaft_tube_disp_fly_len + 3 + shaft_tube_pwr_disp_len / 2, 0, 0])
+            crank_shaft_tube(shaft_tube_pwr_disp_len);
+        translate([
+            shaft_tube_fly_frame_len + 3 + shaft_tube_disp_fly_len + 3 + shaft_tube_pwr_disp_len + 3 + shaft_tube_pwr_frame_len / 2,
+            0, 0]) crank_shaft_tube(shaft_tube_pwr_frame_len);
+    }
+}
 }
 
 

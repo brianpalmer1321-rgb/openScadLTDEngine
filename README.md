@@ -11,6 +11,7 @@ Parametric 3D model of a **Low Temperature Differential (LTD) Stirling engine** 
 1. Open `LTDEngine.scad` in OpenSCAD.
 2. Use the **Customizer** panel to change mode, animation, and hardware parameters.
 3. Press **F5** (preview) or **F6** (render), then export STLs from **Individual** mode for printing.
+4. In **Individual** mode, set **export_part** to one part (or **All on plate**), render, and export STL.
 
 ## Customizer modes
 

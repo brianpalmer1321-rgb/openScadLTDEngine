@@ -11,15 +11,15 @@ cyl_id = 100;       // tuna tin outer diameter (mm)
 cyl_wall_t = 0.40;  // tin wall thickness (each side); inner bore = cyl_id - 2*cyl_wall_t
 cyl_h = 47;         // tin height
 /* [Layout & cranktrain] */
-axle_to_deck = 75;  // crank Z=0 to cold plate; keep ≥ flywheel_d/2 + margin
+axle_to_deck = 80;  // crank Z=0 to cold plate; keep ≥ flywheel_d/2 + margin
 flywheel_d = 140;
 flywheel_w = 8;
 flywheel_collar_od = 10;
 flywheel_collar_h = 6;
-left_support_x = -42;
+left_support_x = -40;
 flywheel_x = -22;
 power_piston_x = 22;
-right_support_x = 42;
+right_support_x = 40;
 disp_link_len = 40;   // nominal displacer rod (kinematics seed; disc spacing in Individual)
 power_link_len = 25;  // legacy nominal; Individual exports green discs only (steel cut from echo)
 power_stroke = 12;
@@ -54,6 +54,7 @@ displacer_stroke_ratio = 0.55;    // stroke as fraction of usable bore depth
 /* [Cold side] */
 cold_plate_od = 97.25;   // mm; aluminum plate OD (machined; STL optional)
 cold_plate_t = 6.35;     // mm aluminum plate thickness
+cold_plate_cup_depth = 0.05; // mm dish on top for cooling water; snap-ring rim overlap
 ring_snap_groove_inset = 1.65;  // mm from cyl_id to groove radii (plastic-tuned)
 ring_plastic_clearance = 0.2;   // extra groove width for PETG/PLA flex
 ring_clamp_lip_t = 1.75;         // mm shelf thickness bearing on plate top
@@ -75,7 +76,7 @@ power_cyl_boss_h = 5;         // power cylinder pedestal on cold plate
 frame_w = 30; frame_t = 5; slot_tolerance = 0.2; parts_y_axis = 0;
 shaft_tube_bearing_gap = 0.5;
 ring_groove_h = 2.8;
-snap_ring_t = cold_plate_t + ring_clamp_lip_t + 0.3; // spans can groove through clamp lip
+snap_ring_t = cold_plate_t + ring_clamp_lip_t - cold_plate_cup_depth; // spans can groove through clamp lip
 ring_od = cyl_id + ring_outer_lip;
 ring_snap_groove_outer_d = cyl_id + ring_snap_groove_inset + ring_plastic_clearance;
 ring_snap_groove_inner_d = cyl_id - ring_snap_groove_inset - ring_plastic_clearance;
@@ -523,11 +524,14 @@ module cold_plate() {
         translate([right_support_x, parts_y_axis, frame_slot_z]) mounting_holes(h_len=50);
         translate([left_support_x, parts_y_axis, 0]) insert_pockets();
         translate([right_support_x, parts_y_axis, 0]) insert_pockets();
+        if (cold_plate_cup_depth > 0)
+            translate([0, 0, cold_plate_t - cold_plate_cup_depth])
+                cylinder(d=ring_clamp_inner_d, h=cold_plate_cup_depth + 0.01, center=false);
     }
 }
 // Plastic ring: thin hollow shell; snaps on can rim, clamp shelf presses cold plate onto can mouth
 module can_snap_ring() {
-    clamp_z = cold_plate_t - 0.05;
+    clamp_z = cold_plate_t - cold_plate_cup_depth;
     color("LimeGreen") union() {
         difference() {
             cylinder(d=ring_od, h=snap_ring_t, center=false);

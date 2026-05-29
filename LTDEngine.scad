@@ -3,6 +3,8 @@
 /* [Rendering Options] */
 mode = "Assembled"; // [Individual, Assembled, Exploded]
 export_part = "All on plate"; // [All on plate, Snap ring, Cold plate ref, Power cylinder, Power piston, Link discs x4, Support frame, Flywheel, Displacer crank arm, Power crank arm, Rod flange, Stiffener tubes x4]
+show_y_section = false; // vertical cut at section_y_offset; keeps y >= offset (+Y half)
+section_y_offset = 0; // mm; 0 = engine center plane (XZ)
 /* [Kinematics & Animation] */
 animate_engine = true; // [true, false]
 manual_angle = 45; // [0:360]
@@ -55,10 +57,10 @@ cold_plate_od = 97.25;   // mm; aluminum plate OD (machined; STL optional)
 cold_plate_t = 6.35;     // mm aluminum plate thickness
 cold_plate_cup_depth = 0.05; // mm dish on top for cooling water; snap-ring rim overlap
 ring_snap_groove_inset = 1.65;  // mm from cyl_id to groove radii (plastic-tuned)
-ring_plastic_clearance = 0.2;   // extra groove width for PETG/PLA flex
+ring_plastic_clearance = 0.2;   // extra groove width for TPU flex on can rim
 ring_clamp_lip_t = 1.75;         // mm shelf thickness bearing on plate top
-ring_clamp_overhang = 2.5;       // mm lip extends inward over plate OD edge
-ring_outer_lip = 6;              // ring OD = cyl_id + ring_outer_lip
+ring_clamp_overhang = 2.5;       // mm lip extends inward over plate OD edge (cold plate cup)
+ring_outer_lip = 6;              // legacy OD margin; snap ring profile is DXF-driven
 /* [Thermodynamic analysis] */
 T_hot_C = 50;               // hot-side boundary temp (°C), e.g. warm water on tuna can
 T_cold_C = 20;              // cold-side boundary temp (°C), e.g. room air at cold plate
@@ -69,15 +71,30 @@ mechanical_efficiency = 0.65; // [0.3:0.95] fraction of indicated work reaching 
 dead_volume_scale = 1.0;    // scales geometry-derived clearance/dead volumes
 /* [Hidden] */
 $fn = 60;
+section_half_size = 500; // Y-section clip volume (mm each axis from cut plane)
 power_piston_axial_clearance = 1; // mm each end of power piston travel in bore
 flange_od = 12; flange_t = 2.0;
 disp_flange_pin_z_offset = (flange_t + 2) / 2 + 4; // tab clevis pin height above flange center
 power_cyl_boss_h = 5;         // power cylinder pedestal on cold plate
 frame_w = 30; frame_t = 5; slot_tolerance = 0.2; parts_y_axis = 0;
 shaft_tube_bearing_gap = 0.5;
-ring_groove_h = 2.8;
-snap_ring_t = cold_plate_t + ring_clamp_lip_t - cold_plate_cup_depth; // spans can groove through clamp lip
-ring_od = cyl_id + ring_outer_lip;
+// TPU snap ring: revolved profile from profiles/canSnapRing.dxf (mm; Y offset −64.55 → z=0)
+ring_profile_y0 = 64.55;
+snap_ring_profile = [
+    [46.912276563526085, 0.0],
+    [53.69999999999999, 0.0],
+    [53.69999999999999, 12.079999999486503],
+    [50.199999999999974, 12.079999999486503],
+    [50.2, 10.079999999808095],
+    [50.699999999999996, 10.079999999808095],
+    [50.699999999999996, 2.9999999999999503],
+    [46.91227656352625, 2.999999999999993]
+];
+snap_ring_t = snap_ring_profile[2][1]; // axial extent from profile
+ring_clamp_shelf_z = snap_ring_profile[4][1]; // DXF shelf step (profile coords before flip)
+ring_z_offset = cold_plate_t - snap_ring_t; // flipped ring: foot on plate top, groove into can
+ring_groove_h = 2.8; // reference only (groove is in profile)
+ring_od = 2 * snap_ring_profile[2][0]; // OD from profile
 ring_snap_groove_outer_d = cyl_id + ring_snap_groove_inset + ring_plastic_clearance;
 ring_snap_groove_inner_d = cyl_id - ring_snap_groove_inset - ring_plastic_clearance;
 ring_clamp_id = cold_plate_od + 1.0; // bore clearance over plate OD for assembly
@@ -523,26 +540,13 @@ module cold_plate() {
                 cylinder(d=ring_clamp_inner_d, h=cold_plate_cup_depth + 0.01, center=false);
     }
 }
-// Plastic ring: thin hollow shell; snaps on can rim, clamp shelf presses cold plate onto can mouth
+// TPU snap ring: revolved DXF profile, Z-flipped so clamp hooks plate from can side
 module can_snap_ring() {
-    clamp_z = cold_plate_t - cold_plate_cup_depth;
-    color("LimeGreen") union() {
-        difference() {
-            cylinder(d=ring_od, h=snap_ring_t, center=false);
-            translate([0, 0, -0.1])
-                cylinder(d=ring_clamp_id, h=snap_ring_t + 0.2, center=false);
-            translate([0, 0, -0.1]) difference() {
-                cylinder(d=ring_snap_groove_outer_d, h=ring_groove_h + 0.2, center=false);
-                cylinder(d=ring_snap_groove_inner_d, h=ring_groove_h + 0.4, center=false);
-            }
-        }
-        difference() {
-            translate([0, 0, clamp_z])
-                cylinder(d=ring_clamp_id, h=ring_clamp_lip_t, center=false);
-            translate([0, 0, clamp_z - 0.1])
-                cylinder(d=ring_clamp_inner_d, h=ring_clamp_lip_t + 0.2, center=false);
-        }
-    }
+    color("Teal")
+        translate([0, 0, snap_ring_t])
+        mirror([0, 0, 1])
+        rotate_extrude(convexity = 10)
+            polygon(snap_ring_profile);
 }
 module flywheel_geom() {
     collar_z = flywheel_w / 2 + flywheel_collar_h / 2;
@@ -558,6 +562,19 @@ module flywheel_geom() {
         // Radial M3 setscrew through clamping collar (shaft axis = Z)
         translate([flywheel_collar_od / 2, 0, collar_z]) rotate([0, 90, 0])
             cylinder(d=setscrew_d, h=flywheel_collar_od + 2, center=true);
+    }
+}
+
+// Keep y >= section_y_offset for vertical (XZ) cross-section views
+module with_y_section() {
+    if (show_y_section) {
+        intersection() {
+            children();
+            translate([-section_half_size, section_y_offset, -section_half_size])
+                cube([2 * section_half_size, section_half_size, 2 * section_half_size]);
+        }
+    } else {
+        children();
     }
 }
 
@@ -592,6 +609,7 @@ power_link_len_eff = power_link_len;
 piston_rot_x = atan2(piston_pin_y, piston_pin_z - power_piston_pin_z);
 
 if (mode == "Assembled" || mode == "Exploded") {
+with_y_section() {
     // 1. DRIVE AXLE (Z = 0): 3 mm rod + four collar-OD tubes between major stations
     shaft_span_x(shaft_seg_flywheel_left, shaft_seg_flywheel_right);
     shaft_span_x(disp_web_l_out, disp_web_l_in);
@@ -629,7 +647,7 @@ translate([left_support_x, parts_y_axis, 0]) support_frame();
 translate([right_support_x, parts_y_axis, 0]) mirror([1, 0, 0]) support_frame();
 translate([0, parts_y_axis, -axle_to_deck]) {
 cold_plate();
-translate([0, 0, ring_ez]) can_snap_ring();
+translate([0, 0, ring_ez + ring_z_offset]) can_snap_ring();
 translate([power_piston_x, parts_y_axis, cold_plate_t]) power_cylinder();
 }
 }
@@ -651,6 +669,7 @@ displacer_rod(displacer_shaft_len);
 translate([0, 0, disp_center_z]) displacer();
 }
 translate([0, parts_y_axis, -axle_to_deck - cyl_h]) tuna_tin_can();
+}
 }
 } else if (mode == "Individual") {
 // export_part dropdown: "All on plate" uses layout below; else single part at origin for STL

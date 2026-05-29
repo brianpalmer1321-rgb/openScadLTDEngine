@@ -26,6 +26,8 @@ Parametric 3D model of a **Low Temperature Differential (LTD) Stirling engine** 
 | File | Description |
 |------|-------------|
 | `LTDEngine.scad` | Main parametric model |
+| `profiles/canSnapRing.dxf` | TPU snap ring 2D profile (revolved in `can_snap_ring()`) |
+| `tools/sync_snap_ring_profile.py` | Re-sync `snap_ring_profile` in SCAD after editing the DXF |
 | `LTDEngine.scad.txt` | Earlier prototype (displacer cap + A-frames) |
 
 ## Parts list
@@ -42,7 +44,7 @@ Names below match the OpenSCAD modules and assembly labels used in `LTDEngine.sc
 
 | Part name | Module | Qty | Role |
 |-----------|--------|-----|------|
-| Can snap ring | `can_snap_ring()` | 1 | Plastic ring; snaps on can rim and clamps cold plate onto can mouth |
+| Can snap ring | `can_snap_ring()` | 1 | **TPU** ring from `profiles/can_snap_ring.dxf` profile; snaps on can rim and clamps cold plate |
 | Support frame (left) | `support_frame()` | 1 | Crankshaft bearing tower, left side |
 | Support frame (right) | `support_frame()` | 1 | Crankshaft bearing tower, right side (mirror of left) |
 | Flywheel | `flywheel_geom()` | 1 | Main inertia wheel on crankshaft |
@@ -113,4 +115,4 @@ Export each solid separately from the rendered view, or split the file into per-
 - Swept-volume ratio defaults to **40:1** (displacer → power cylinder sizing).
 - Power piston runs **90°** out of phase with the displacer crank.
 - Hardware assumptions: M3 mounting screws, M3 heat-set inserts in the **aluminum** cold plate, 8×4×3 mm bearings on the crank axle.
-- Cold plate defaults: **97.25 mm OD × 6.35 mm** (`cold_plate_od`, `cold_plate_t` in Customizer). Snap ring clamp lip holds it on the can mouth.
+- Cold plate defaults: **97.25 mm OD × 6.35 mm** (`cold_plate_od`, `cold_plate_t` in Customizer). **TPU** snap ring clamp lip holds it on the can mouth; tune `ring_plastic_clearance` if the rim fit is too tight or loose.

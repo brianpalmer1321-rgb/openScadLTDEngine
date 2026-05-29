@@ -26,6 +26,7 @@ Parametric 3D model of a **Low Temperature Differential (LTD) Stirling engine** 
 | File | Description |
 |------|-------------|
 | `LTDEngine.scad` | Main parametric model |
+| `Can401.scad` | Reference 401 tin can + snap-over lid (rim geometry, lid fit) |
 | `profiles/canSnapRing.dxf` | TPU snap ring 2D profile (revolved in `can_snap_ring()`) |
 | `tools/sync_snap_ring_profile.py` | Re-sync `snap_ring_profile` in SCAD after editing the DXF |
 | `LTDEngine.scad.txt` | Earlier prototype (displacer cap + A-frames) |

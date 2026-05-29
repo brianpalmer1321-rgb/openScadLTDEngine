@@ -8,12 +8,9 @@
 
 /* [Display] */
 show = "Assembled"; // [Assembled, Can only, Lid only, Exploded]
-show_y_section = false; // F5: highlighted caps; F6 Render: true can_section_color / lid_section_color
-can_color = "Silver";           // can exterior
-lid_color = "Teal";             // lid exterior
-can_section_color = [0.75, 0.60, 0.35];    // can cut-face (metal tan); use F6 to preview
-lid_section_color = [0.85, 0.28, 0.22];    // lid cut-face (TPU red); use F6 to preview
-section_cap_t = 0.35; // mm; cap slab thickness on y=0 plane
+show_y_section = false; // vertical cut at y=0 (XZ mid-plane)
+can_color = "Silver";
+lid_color = "Teal";
 $fn = 80;
 
 /* [401 Can body] */
@@ -123,73 +120,36 @@ module can401_snap_lid() {
     }
 }
 
-module clip_y_positive() {
-    intersection() {
-        children();
-        translate([-section_half, 0, -section_half])
-            cube([2 * section_half, section_half, 2 * section_half]);
-    }
-}
-
-// Colored slab centered on y=0 (OpenSCAD 2021 cannot tint CSG cut faces per part in F5).
-module y_section_cap(section_color) {
-    if ($preview) {
-        // F5: highlight so can/lid caps differ from default tan
-        # color(section_color)
-            intersection() {
-                render() children();
-                translate([-section_half, -section_cap_t / 2, -section_half])
-                    cube([2 * section_half, section_cap_t, 2 * section_half]);
-            }
-    } else {
-        color(section_color)
-            intersection() {
-                render() children();
-                translate([-section_half, -section_cap_t / 2, -section_half])
-                    cube([2 * section_half, section_cap_t, 2 * section_half]);
-            }
-    }
-}
-
-module with_y_section(part_color, section_color, alpha = 0.9) {
+module with_y_section() {
     if (show_y_section) {
-        union() {
-            color(part_color, alpha)
-                if ($preview)
-                    clip_y_positive() children();
-                else
-                    difference() {
-                        children();
-                        translate([-section_half, -section_half, -section_half])
-                            cube([2 * section_half, section_half, 2 * section_half]);
-                    }
-            y_section_cap(section_color)
-                children();
+        intersection() {
+            children();
+            translate([-section_half, 0, -section_half])
+                cube([2 * section_half, section_half, 2 * section_half]);
         }
     } else {
-        color(part_color, alpha)
-            children();
+        children();
     }
 }
 
 module can401_assembly(explode = 0) {
-    with_y_section(can_color, can_section_color, 0.85)
-        can401_body();
-    with_y_section(lid_color, lid_section_color, 0.92)
+    color(can_color) can401_body();
+    color(lid_color)
         translate([0, 0, can_h + explode])
         can401_snap_lid();
 }
 
 // --- Layout ---
-if (show == "Can only") {
-    with_y_section(can_color, can_section_color, 0.85)
-        can401_body();
-} else if (show == "Lid only") {
-    with_y_section(lid_color, lid_section_color, 0.92)
-        translate([0, 0, can_h])
-        can401_snap_lid();
-} else if (show == "Exploded") {
-    can401_assembly(explode = 15);
-} else {
-    can401_assembly(explode = 0);
+with_y_section() {
+    if (show == "Can only") {
+        color(can_color) can401_body();
+    } else if (show == "Lid only") {
+        color(lid_color)
+            translate([0, 0, can_h])
+            can401_snap_lid();
+    } else if (show == "Exploded") {
+        can401_assembly(explode = 15);
+    } else {
+        can401_assembly(explode = 0);
+    }
 }

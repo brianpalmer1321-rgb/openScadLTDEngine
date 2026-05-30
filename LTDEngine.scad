@@ -53,7 +53,7 @@ displacer_radial_clearance = 1.5; // mm gap to can wall (each side)
 displacer_axial_clearance = 2;    // mm at top and bottom of stroke
 displacer_stroke_ratio = 0.55;    // stroke as fraction of usable bore depth
 /* [Cold side] */
-cold_plate_od = 97.25;   // mm; aluminum plate OD (machined; STL optional)
+cold_plate_rim_clearance = 0.25; // mm radial gap; plate OD vs can mouth inner wall
 cold_plate_t = 6.35;     // mm aluminum plate thickness
 cold_plate_cup_depth = 0.05; // mm dish on top for cooling water; snap-ring rim overlap
 ring_clamp_overhang = 2.5;       // mm lip extends inward over plate OD edge (cold plate cup)
@@ -74,7 +74,6 @@ disp_flange_pin_z_offset = (flange_t + 2) / 2 + 4; // tab clevis pin height abov
 power_cyl_boss_h = 5;         // power cylinder pedestal on cold plate
 frame_w = 30; frame_t = 5; slot_tolerance = 0.2; parts_y_axis = 0;
 shaft_tube_bearing_gap = 0.5;
-ring_clamp_inner_d = cold_plate_od - 2 * ring_clamp_overhang; // inward hook over plate rim
 frame_slot_z = cold_plate_t / 2;     // frame slot cut height on thicker plate
 // Individual-mode export plate layout (build-plate positions; 2 mm+ gaps)
 ind_x_snap_ring = -170;
@@ -93,6 +92,12 @@ function export_show(name) = ind_on_plate || export_part == name;
 
 use <Can401_lib.scad>
 
+can_inner_d = can_body_od - 2 * can_wall_t;
+can_mouth_id = can_inner_d + 0.7; // rolled-rim inner step (Can401_lib seam_ri + 0.35 mm)
+cold_plate_od = can_mouth_id - 2 * cold_plate_rim_clearance;
+cold_plate_drop = can401_cold_plate_drop(cold_plate_od); // seat plate OD on inner rim
+cold_plate_bottom_z = -axle_to_deck - cold_plate_drop;   // world z; can top at -axle_to_deck
+ring_clamp_inner_d = cold_plate_od - 2 * ring_clamp_overhang; // inward hook over plate rim
 snap_ring_profile = can401_engine_snap_ring_profile(cold_plate_od, ring_clamp_overhang);
 snap_ring_t = profile_max_z(snap_ring_profile); // axial extent from profile
 ring_z_offset = cold_plate_t - snap_ring_t; // flipped ring: foot on plate top, groove into can
@@ -100,7 +105,6 @@ ring_z_offset = cold_plate_t - snap_ring_t; // flipped ring: foot on plate top, 
 // ==========================================
 // 1. LTD OPTIMIZED THERMODYNAMIC CALCULATIONS
 // ==========================================
-can_inner_d = can_body_od - 2 * can_wall_t;
 link_stick_bore_d = pin_d + 0.15;
 bearing_pocket_od = bearing_od + bearing_pocket_clearance;
 bearing_pocket_h = bearing_th + 0.1;
@@ -126,7 +130,7 @@ disp_can_top_z = -axle_to_deck - displacer_axial_clearance;
 disp_z_min = disp_can_bottom_z + displacer_axial_clearance + displacer_h / 2;
 disp_z_max = disp_can_top_z - displacer_axial_clearance - displacer_h / 2;
 disp_center_mid_z = (disp_z_min + disp_z_max) / 2;
-power_cyl_base_z = -axle_to_deck + cold_plate_t;
+power_cyl_base_z = cold_plate_bottom_z + cold_plate_t;
 power_cyl_bore_top_z = power_cyl_base_z + power_cyl_h;
 power_piston_base_min = power_cyl_base_z + power_piston_axial_clearance;
 power_piston_base_max = power_cyl_bore_top_z - power_piston_axial_clearance - power_piston_h;
@@ -342,12 +346,12 @@ module support_frame() {
         union() {
             hull() {
                 rotate([90, 0, 90]) cylinder(d=14, h=frame_t, center=true);
-                translate([0, 0, -axle_to_deck + 2.5]) cube([frame_t, frame_w, 5], center=true);
+                translate([0, 0, cold_plate_bottom_z + frame_slot_z]) cube([frame_t, frame_w, 5], center=true);
             }
             rotate([90, 0, 90]) cylinder(d=14, h=frame_t, center=true);
         }
         rotate([90, 0, 90]) bearing_pocket();
-        translate([0, 0, -axle_to_deck + 2.5]) mounting_holes(h_len=50);
+        translate([0, 0, cold_plate_bottom_z + frame_slot_z]) mounting_holes(h_len=50);
     }
 }
 // Fork tab: square shank, +Z crown rounded to link_disc_d (matches link_end_disc arc)
@@ -601,7 +605,7 @@ translate([0, piston_pin_y, piston_pin_z]) rotate([-piston_rot_x, 0, 0]) linkage
 translate([0, 0, -ez]) {
 translate([left_support_x, parts_y_axis, 0]) support_frame();
 translate([right_support_x, parts_y_axis, 0]) mirror([1, 0, 0]) support_frame();
-translate([0, parts_y_axis, -axle_to_deck]) {
+translate([0, parts_y_axis, cold_plate_bottom_z]) {
 cold_plate();
 translate([0, 0, ring_ez + ring_z_offset]) can_snap_ring();
 translate([power_piston_x, parts_y_axis, cold_plate_t]) power_cylinder();

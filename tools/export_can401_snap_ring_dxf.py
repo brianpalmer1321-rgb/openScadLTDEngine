@@ -14,8 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 LIB = ROOT / "Can401_lib.scad"
 OUT = ROOT / "profiles" / "can401_snap_ring.dxf"
 
-# LTDEngine defaults for plate hook (also in LTDEngine.scad customizer)
-PLATE_OD = 97.25
+# LTDEngine defaults for plate hook (cold_plate_od derived in LTDEngine.scad)
+PLATE_OD = 99.21 - 2 * 0.25  # can_mouth_id − 2×cold_plate_rim_clearance
 CLAMP_OVERHANG = 2.5
 
 

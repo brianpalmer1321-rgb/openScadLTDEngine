@@ -13,6 +13,9 @@ PI = math.pi
 CAN_BODY_OD = 98.93
 CAN_RIM_OD = 101.75
 CAN_WALL_T = 0.21
+CAN_INNER_D = CAN_BODY_OD - 2 * CAN_WALL_T
+CAN_MOUTH_ID = CAN_INNER_D + 0.7  # rolled-rim inner step (Can401_lib seam_ri)
+COLD_PLATE_RIM_CLEARANCE = 0.25
 CYL_H = 47.0
 AXLE_TO_DECK = 80.0
 FLYWHEEL_D = 140.0
@@ -39,12 +42,30 @@ DISP_RADIAL_CLEARANCE = 1.5
 DISP_AXIAL_CLEARANCE = 2.0
 DISP_STROKE_RATIO = 0.55
 COLD_PLATE_T = 6.35
-COLD_PLATE_OD = 97.25
-RING_CLAMP_ID = 97.25 + 1.0
+COLD_PLATE_OD = CAN_MOUTH_ID - 2 * COLD_PLATE_RIM_CLEARANCE
+RING_CLAMP_ID = COLD_PLATE_OD + 1.0
 POWER_PISTON_AXIAL_CLEARANCE = 1.0
 DISP_ROD_BLIND_DEPTH = 4.0
 POWER_PISTON_CLEVIS_BOSS_H = 6.0
 CRANK_WEB_X = CRANK_WEB_GAP / 2 + CRANK_WEB_T / 2
+CAN_RIM_H = 3.15
+CAN_FLANGE_STEP_H = 0.55
+
+
+def cold_plate_seat_z(plate_od: float) -> float:
+    ri = CAN_INNER_D / 2
+    seam_ri = ri + 0.35
+    z_rim = CYL_H - CAN_RIM_H
+    z_step = z_rim + CAN_FLANGE_STEP_H
+    plate_r = plate_od / 2
+    if plate_r <= ri:
+        return z_rim
+    if plate_r >= seam_ri:
+        return CYL_H
+    return z_rim + (plate_r - ri) * (z_step - z_rim) / (seam_ri - ri)
+
+
+COLD_PLATE_DROP = CYL_H - cold_plate_seat_z(COLD_PLATE_OD)
 
 
 @dataclass
@@ -74,7 +95,7 @@ def derived() -> dict:
     disp_z_min = disp_can_bottom_z + DISP_AXIAL_CLEARANCE + displacer_h / 2
     disp_z_max = disp_can_top_z - DISP_AXIAL_CLEARANCE - displacer_h / 2
     disp_center_mid_z = (disp_z_min + disp_z_max) / 2
-    power_cyl_base_z = -AXLE_TO_DECK + COLD_PLATE_T
+    power_cyl_base_z = -AXLE_TO_DECK - COLD_PLATE_DROP + COLD_PLATE_T
     power_cyl_bore_top_z = power_cyl_base_z + power_cyl_h
     power_piston_base_min = power_cyl_base_z + POWER_PISTON_AXIAL_CLEARANCE
     power_piston_base_max = (

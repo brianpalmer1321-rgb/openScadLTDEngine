@@ -44,7 +44,7 @@ Names below match the OpenSCAD modules and assembly labels used in `LTDEngine.sc
 
 | Part name | Module | Qty | Role |
 |-----------|--------|-----|------|
-| Cold plate | `cold_plate()` | 1 | **Aluminum** top deck (default 97.25 mm OD × 6.35 mm); mounts seal bore, power cylinder boss, frame slots, and heat-set inserts. Machined from plate stock; STL in Individual mode is for reference or optional printing. |
+| Cold plate | `cold_plate()` | 1 | **Aluminum** top deck (default ~98.7 mm OD × 6.35 mm); OD derived from 401 can mouth minus `cold_plate_rim_clearance`. Machined from plate stock; STL in Individual mode is for reference or optional printing. |
 
 ### Printed parts
 
@@ -121,4 +121,4 @@ Export each solid separately from the rendered view, or split the file into per-
 - Swept-volume ratio defaults to **40:1** (displacer → power cylinder sizing).
 - Power piston runs **90°** out of phase with the displacer crank.
 - Hardware assumptions: M3 mounting screws, M3 heat-set inserts in the **aluminum** cold plate, 8×4×3 mm bearings on the crank axle.
-- Cold plate defaults: **97.25 mm OD × 6.35 mm** (`cold_plate_od`, `cold_plate_t` in Customizer). **TPU** snap ring clamp lip holds it on the can mouth; tune `ring_plastic_clearance` if the rim fit is too tight or loose.
+- Cold plate OD is derived from the **401 can mouth** inner diameter (~99.2 mm at the rolled rim) minus `cold_plate_rim_clearance` (default 0.25 mm per side → **~98.7 mm OD**). The plate is lowered **`cold_plate_drop` (~3 mm)** until its OD contacts the inner rim wall for a seated seal. **TPU** snap ring clamp lip holds it on the can mouth.

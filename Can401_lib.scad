@@ -47,6 +47,20 @@ function tan(deg) = sin(deg) / cos(deg);
 function profile_max_z(profile) =
     len(profile) == 0 ? 0 : max([for (p = profile) p[1]]);
 
+// Axial z (can coords, z=0 at bottom) where plate OD just touches inner rim wall.
+function can401_cold_plate_seat_z(plate_od) = let(
+    ri = can_body_id / 2,
+    seam_ri = ri + 0.35,
+    z_rim = can_h - can_rim_h,
+    z_step = z_rim + can_flange_step_h,
+    plate_r = plate_od / 2
+) (plate_r <= ri) ? z_rim
+  : (plate_r >= seam_ri) ? can_h
+  : z_rim + (plate_r - ri) * (z_step - z_rim) / (seam_ri - ri);
+
+// Lower cold plate until OD contacts rim; 0 if plate already spans full mouth ID.
+function can401_cold_plate_drop(plate_od) = can_h - can401_cold_plate_seat_z(plate_od);
+
 // Lid skirt meridional section [radius, z]; z=0 at panel underside, +z toward panel.
 function lid_skirt_profile_points() = [
     [lid_r, 0],

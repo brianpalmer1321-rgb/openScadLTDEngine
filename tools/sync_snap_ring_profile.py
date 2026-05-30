@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Sync snap_ring_profile in LTDEngine.scad from profiles/*.dxf (newest wins)."""
+"""Legacy: sync snap_ring_profile in LTDEngine.scad from profiles/*.dxf.
+
+LTDEngine now uses can401_engine_snap_ring_profile() from Can401_lib.scad.
+Use tools/export_can401_snap_ring_dxf.py to export the current parametric profile.
+"""
 
 from __future__ import annotations
 

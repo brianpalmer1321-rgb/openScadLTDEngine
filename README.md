@@ -28,8 +28,12 @@ Parametric 3D model of a **Low Temperature Differential (LTD) Stirling engine** 
 | `LTDEngine.scad` | Main parametric model |
 | `Can401_lib.scad` | 401 can + snap lid modules (used by `LTDEngine.scad` via `use`) |
 | `Can401.scad` | Reference 401 tin can + snap-over lid viewer (rim geometry, lid fit) |
-| `profiles/canSnapRing.dxf` | TPU snap ring 2D profile (revolved in `can_snap_ring()`) |
-| `tools/sync_snap_ring_profile.py` | Re-sync `snap_ring_profile` in SCAD after editing the DXF |
+| `profiles/can_snap_ring.dxf` | Legacy TPU snap ring profile (superseded by `Can401_lib.scad`) |
+| `profiles/can401_snap_ring.dxf` | 401 engine snap ring meridional section (lid-skirt grip); from `tools/export_can401_snap_ring_dxf.py` |
+| `profiles/can401_body.dxf` | 401 can body meridional section (OUTER wall + INNER bore); from `tools/export_can401_body_dxf.py` |
+| `tools/sync_snap_ring_profile.py` | Legacy: sync old DXF into SCAD (no longer used by `LTDEngine.scad`) |
+| `tools/export_can401_body_dxf.py` | Regenerate `profiles/can401_body.dxf` from `Can401_lib.scad` |
+| `tools/export_can401_snap_ring_dxf.py` | Regenerate `profiles/can401_snap_ring.dxf` from `Can401_lib.scad` |
 | `LTDEngine.scad.txt` | Earlier prototype (displacer cap + A-frames) |
 
 ## Parts list
@@ -46,7 +50,7 @@ Names below match the OpenSCAD modules and assembly labels used in `LTDEngine.sc
 
 | Part name | Module | Qty | Role |
 |-----------|--------|-----|------|
-| Can snap ring | `can_snap_ring()` | 1 | **TPU** ring from `profiles/can_snap_ring.dxf` profile; snaps on can rim and clamps cold plate |
+| Can snap ring | `can_snap_ring()` | 1 | **TPU** ring; 401 lid-skirt grip + cold-plate hook (`Can401_lib.scad`) |
 | Support frame (left) | `support_frame()` | 1 | Crankshaft bearing tower, left side |
 | Support frame (right) | `support_frame()` | 1 | Crankshaft bearing tower, right side (mirror of left) |
 | Flywheel | `flywheel_geom()` | 1 | Main inertia wheel on crankshaft |

@@ -74,20 +74,6 @@ disp_flange_pin_z_offset = (flange_t + 2) / 2 + 4; // tab clevis pin height abov
 power_cyl_boss_h = 5;         // power cylinder pedestal on cold plate
 frame_w = 30; frame_t = 5; slot_tolerance = 0.2; parts_y_axis = 0;
 shaft_tube_bearing_gap = 0.5;
-// TPU snap ring: revolved profile from profiles/canSnapRing.dxf (mm; Y offset −64.55 → z=0)
-ring_profile_y0 = 64.55; // DXF Y offset (sync metadata; used by tools/sync_snap_ring_profile.py)
-snap_ring_profile = [
-    [46.912276563526085, 0.0],
-    [53.69999999999999, 0.0],
-    [53.69999999999999, 12.079999999486503],
-    [50.199999999999974, 12.079999999486503],
-    [50.2, 10.079999999808095],
-    [50.699999999999996, 10.079999999808095],
-    [50.699999999999996, 2.9999999999999503],
-    [46.91227656352625, 2.999999999999993]
-];
-snap_ring_t = snap_ring_profile[2][1]; // axial extent from profile
-ring_z_offset = cold_plate_t - snap_ring_t; // flipped ring: foot on plate top, groove into can
 ring_clamp_inner_d = cold_plate_od - 2 * ring_clamp_overhang; // inward hook over plate rim
 frame_slot_z = cold_plate_t / 2;     // frame slot cut height on thicker plate
 // Individual-mode export plate layout (build-plate positions; 2 mm+ gaps)
@@ -106,6 +92,10 @@ ind_on_plate = export_part == "All on plate";
 function export_show(name) = ind_on_plate || export_part == name;
 
 use <Can401_lib.scad>
+
+snap_ring_profile = can401_engine_snap_ring_profile(cold_plate_od, ring_clamp_overhang);
+snap_ring_t = profile_max_z(snap_ring_profile); // axial extent from profile
+ring_z_offset = cold_plate_t - snap_ring_t; // flipped ring: foot on plate top, groove into can
 
 // ==========================================
 // 1. LTD OPTIMIZED THERMODYNAMIC CALCULATIONS
@@ -507,13 +497,12 @@ module cold_plate() {
                 cylinder(d=ring_clamp_inner_d, h=cold_plate_cup_depth + 0.01, center=false);
     }
 }
-// TPU snap ring: revolved DXF profile, Z-flipped so clamp hooks plate from can side
+// TPU snap ring: 401 lid-skirt grip + cold-plate hook (Can401_lib); Z-flipped for assembly
 module can_snap_ring() {
     color("Teal")
         translate([0, 0, snap_ring_t])
         mirror([0, 0, 1])
-        rotate_extrude(convexity = 10)
-            polygon(snap_ring_profile);
+        can401_engine_snap_ring(cold_plate_od, ring_clamp_overhang);
 }
 module flywheel_geom() {
     collar_z = flywheel_w / 2 + flywheel_collar_h / 2;

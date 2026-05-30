@@ -1,6 +1,6 @@
 # LTD Stirling Engine (OpenSCAD)
 
-Parametric 3D model of a **Low Temperature Differential (LTD) Stirling engine** sized around a ~100 mm tuna-can hot cylinder, with animated crank/linkage kinematics.
+Parametric 3D model of a **Low Temperature Differential (LTD) Stirling engine** sized around an industry **401** metal food can hot cylinder (~101.75 mm seam OD, ~98.5 mm inner bore), with animated crank/linkage kinematics.
 
 ## Requirements
 
@@ -26,7 +26,8 @@ Parametric 3D model of a **Low Temperature Differential (LTD) Stirling engine** 
 | File | Description |
 |------|-------------|
 | `LTDEngine.scad` | Main parametric model |
-| `Can401.scad` | Reference 401 tin can + snap-over lid (rim geometry, lid fit) |
+| `Can401_lib.scad` | 401 can + snap lid modules (used by `LTDEngine.scad` via `use`) |
+| `Can401.scad` | Reference 401 tin can + snap-over lid viewer (rim geometry, lid fit) |
 | `profiles/canSnapRing.dxf` | TPU snap ring 2D profile (revolved in `can_snap_ring()`) |
 | `tools/sync_snap_ring_profile.py` | Re-sync `snap_ring_profile` in SCAD after editing the DXF |
 | `LTDEngine.scad.txt` | Earlier prototype (displacer cap + A-frames) |
@@ -74,7 +75,7 @@ The crankshaft is built from **3 mm rod** segments in the assembly (grey cylinde
 
 | Part name | Module (reference) | Qty | Notes |
 |-----------|-------------------|-----|-------|
-| Tuna tin can (hot cylinder) | `tuna_tin_can()` | 1 | ~100 mm OD × 47 mm tall |
+| 401 metal can (hot cylinder) | `can401_body()` | 1 | ~101.75 mm seam OD, ~98.5 mm bore × 47 mm tall |
 | Brass seal tube | (bore in `cold_plate()`) | 1 | 4.7 mm OD × 3.0 mm ID × 15 mm long |
 | Crankshaft rod stock | `rod_od` | 1 | 3 mm diameter, cut to total crank length |
 | Crank pins (linkage) | (holes in `linkage_rod()`) | 4 | 1.5 mm pins at rod ends (displacer + power × 2) |

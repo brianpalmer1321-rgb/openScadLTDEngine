@@ -10,8 +10,9 @@ from typing import Iterable, List, Tuple
 PI = math.pi
 
 # --- Mirror LTDEngine.scad Customizer defaults ---
-CYL_ID = 100.0
-CYL_WALL_T = 0.40
+CAN_BODY_OD = 98.93
+CAN_RIM_OD = 101.75
+CAN_WALL_T = 0.21
 CYL_H = 47.0
 AXLE_TO_DECK = 80.0
 FLYWHEEL_D = 140.0
@@ -55,7 +56,7 @@ class Issue:
 
 
 def derived() -> dict:
-    can_inner_d = CYL_ID - 2 * CYL_WALL_T
+    can_inner_d = CAN_BODY_OD - 2 * CAN_WALL_T
     displacer_d = can_inner_d - 2 * DISP_RADIAL_CLEARANCE
     disp_bore_depth = CYL_H - 2 * DISP_AXIAL_CLEARANCE
     displacer_stroke = disp_bore_depth * DISP_STROKE_RATIO
@@ -292,13 +293,13 @@ def analyze_angles(angles: Iterable[float]) -> Tuple[List[Issue], dict]:
             )
 
     # Static assembly checks
-    if COLD_PLATE_OD > CYL_ID:
+    if COLD_PLATE_OD > CAN_RIM_OD:
         issues.append(
             Issue(
                 "FAIL",
                 "cold plate vs can OD",
                 None,
-                f"plate OD {COLD_PLATE_OD} > can {CYL_ID}",
+                f"plate OD {COLD_PLATE_OD} > can seam {CAN_RIM_OD}",
             )
         )
     if RING_CLAMP_ID < COLD_PLATE_OD:

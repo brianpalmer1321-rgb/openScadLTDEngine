@@ -8,10 +8,10 @@ section_y_offset = 0; // mm; 0 = engine center plane (XZ)
 /* [Kinematics & Animation] */
 animate_engine = true; // [true, false]
 manual_angle = 45; // [0:360]
-/* [Hot cylinder] */
-cyl_id = 100;       // tuna tin outer diameter (mm)
-cyl_wall_t = 0.40;  // tin wall thickness (each side); inner bore = cyl_id - 2*cyl_wall_t
-cyl_h = 47;         // tin height
+/* [Hot cylinder — industry 401 can (see Can401_lib.scad)] */
+can_body_od = 98.93;  // mm; BMT body plug OD (bore/displacer sizing)
+can_wall_t = 0.21;    // mm; tinplate wall
+cyl_h = 47;           // mm; can height (must match Can401_lib can_h)
 /* [Layout & cranktrain] */
 axle_to_deck = 80;  // crank Z=0 to cold plate; keep ≥ flywheel_d/2 + margin
 flywheel_d = 140;
@@ -56,13 +56,9 @@ displacer_stroke_ratio = 0.55;    // stroke as fraction of usable bore depth
 cold_plate_od = 97.25;   // mm; aluminum plate OD (machined; STL optional)
 cold_plate_t = 6.35;     // mm aluminum plate thickness
 cold_plate_cup_depth = 0.05; // mm dish on top for cooling water; snap-ring rim overlap
-ring_snap_groove_inset = 1.65;  // mm from cyl_id to groove radii (plastic-tuned)
-ring_plastic_clearance = 0.2;   // extra groove width for TPU flex on can rim
-ring_clamp_lip_t = 1.75;         // mm shelf thickness bearing on plate top
 ring_clamp_overhang = 2.5;       // mm lip extends inward over plate OD edge (cold plate cup)
-ring_outer_lip = 6;              // legacy OD margin; snap ring profile is DXF-driven
 /* [Thermodynamic analysis] */
-T_hot_C = 50;               // hot-side boundary temp (°C), e.g. warm water on tuna can
+T_hot_C = 50;               // hot-side boundary temp (°C), e.g. warm water on hot can
 T_cold_C = 20;              // cold-side boundary temp (°C), e.g. room air at cold plate
 mean_pressure_kPa = 101.325; // mean charge pressure (kPa); atmospheric default
 engine_rpm = 120;           // assumed running speed for power estimates
@@ -79,7 +75,7 @@ power_cyl_boss_h = 5;         // power cylinder pedestal on cold plate
 frame_w = 30; frame_t = 5; slot_tolerance = 0.2; parts_y_axis = 0;
 shaft_tube_bearing_gap = 0.5;
 // TPU snap ring: revolved profile from profiles/canSnapRing.dxf (mm; Y offset −64.55 → z=0)
-ring_profile_y0 = 64.55;
+ring_profile_y0 = 64.55; // DXF Y offset (sync metadata; used by tools/sync_snap_ring_profile.py)
 snap_ring_profile = [
     [46.912276563526085, 0.0],
     [53.69999999999999, 0.0],
@@ -91,13 +87,7 @@ snap_ring_profile = [
     [46.91227656352625, 2.999999999999993]
 ];
 snap_ring_t = snap_ring_profile[2][1]; // axial extent from profile
-ring_clamp_shelf_z = snap_ring_profile[4][1]; // DXF shelf step (profile coords before flip)
 ring_z_offset = cold_plate_t - snap_ring_t; // flipped ring: foot on plate top, groove into can
-ring_groove_h = 2.8; // reference only (groove is in profile)
-ring_od = 2 * snap_ring_profile[2][0]; // OD from profile
-ring_snap_groove_outer_d = cyl_id + ring_snap_groove_inset + ring_plastic_clearance;
-ring_snap_groove_inner_d = cyl_id - ring_snap_groove_inset - ring_plastic_clearance;
-ring_clamp_id = cold_plate_od + 1.0; // bore clearance over plate OD for assembly
 ring_clamp_inner_d = cold_plate_od - 2 * ring_clamp_overhang; // inward hook over plate rim
 frame_slot_z = cold_plate_t / 2;     // frame slot cut height on thicker plate
 // Individual-mode export plate layout (build-plate positions; 2 mm+ gaps)
@@ -115,10 +105,12 @@ ind_x_tube0 = -155; ind_x_tube1 = -115; ind_x_tube2 = 55; ind_x_tube3 = 125;
 ind_on_plate = export_part == "All on plate";
 function export_show(name) = ind_on_plate || export_part == name;
 
+use <Can401_lib.scad>
+
 // ==========================================
 // 1. LTD OPTIMIZED THERMODYNAMIC CALCULATIONS
 // ==========================================
-can_inner_d = cyl_id - 2 * cyl_wall_t;
+can_inner_d = can_body_od - 2 * can_wall_t;
 link_stick_bore_d = pin_d + 0.15;
 bearing_pocket_od = bearing_od + bearing_pocket_clearance;
 bearing_pocket_h = bearing_th + 0.1;
@@ -231,11 +223,8 @@ shaft_seg_mid_right = pwr_web_l_out - shaft_seg_gap;
 shaft_seg_power_left = pwr_web_r_out + shaft_seg_gap;
 shaft_seg_power_right = right_support_x;
 shaft_seg_flywheel_h = shaft_seg_flywheel_right - shaft_seg_flywheel_left;
-shaft_seg_flywheel_x = shaft_seg_flywheel_left + shaft_seg_flywheel_h / 2;
 shaft_seg_mid_h = shaft_seg_mid_right - shaft_seg_mid_left;
-shaft_seg_mid_x = shaft_seg_mid_left + shaft_seg_mid_h / 2;
 shaft_seg_power_h = shaft_seg_power_right - shaft_seg_power_left;
-shaft_seg_power_x = shaft_seg_power_left + shaft_seg_power_h / 2;
 shaft_tube_id = rod_od + 0.2; // bore over crank rod (matches crank_arm shaft clearance)
 flywheel_hub_l_x = flywheel_x - flywheel_w / 2; // −X face of flywheel hub (shaft axis = Z in geom → X after rotate)
 flywheel_hub_r_x = flywheel_x + flywheel_w / 2; // +X face of hub; flywheel collar seats here
@@ -277,10 +266,6 @@ function disp_link_pin_span_at(deg) =
         joint_z = dpz - sqrt(max(0.001, pow(disp_link_len, 2) - pow(dpy, 2)))
     ) sqrt(pow(dpy, 2) + pow(dpz - joint_z, 2));
 
-function power_link_pin_span_at(deg) = power_link_len;
-
-function displacer_shaft_len_at(deg) = displacer_shaft_len;
-
 function span_min(v0, v90, v180, v270) = min(v0, min(v90, min(v180, v270)));
 function span_max(v0, v90, v180, v270) = max(v0, max(v90, max(v180, v270)));
 
@@ -290,20 +275,8 @@ disp_link_span_min = span_min(
 disp_link_span_max = span_max(
     disp_link_pin_span_at(0), disp_link_pin_span_at(90),
     disp_link_pin_span_at(180), disp_link_pin_span_at(270));
-power_link_span_min = span_min(
-    power_link_pin_span_at(0), power_link_pin_span_at(90),
-    power_link_pin_span_at(180), power_link_pin_span_at(270));
-power_link_span_max = span_max(
-    power_link_pin_span_at(0), power_link_pin_span_at(90),
-    power_link_pin_span_at(180), power_link_pin_span_at(270));
-displacer_shaft_min = span_min(
-    displacer_shaft_len_at(0), displacer_shaft_len_at(90),
-    displacer_shaft_len_at(180), displacer_shaft_len_at(270));
-displacer_shaft_max = span_max(
-    displacer_shaft_len_at(0), displacer_shaft_len_at(90),
-    displacer_shaft_len_at(180), displacer_shaft_len_at(270));
 linkage_rod_cut_len = disp_link_span_max + link_stick_in_disc;
-power_link_rod_cut_len = power_link_span_max + link_stick_in_disc;
+power_link_rod_cut_len = power_link_len + link_stick_in_disc;
 
 echo("=== Builder cut lengths (mm) ===");
 echo(str("Crankshaft ", rod_od, " mm rod — cut ", crankshaft_rod_total,
@@ -515,12 +488,6 @@ module power_cylinder() {
     }
 }
 module displacer_rod(rod_len) { color("SteelBlue") cylinder(d=rod_od, h=rod_len, center=false); }
-module tuna_tin_can() {
-    color("DarkGrey", 0.4) difference() {
-        cylinder(d=cyl_id, h=cyl_h, center=false);
-        translate([0, 0, 0.5]) cylinder(d=can_inner_d, h=cyl_h + 1, center=false);
-    }
-}
 module cold_plate() {
     color("Silver") difference() {
         union() {
@@ -668,7 +635,8 @@ translate([0, 0, disp_rod_attach_z]) mirror([0, 0, 1])
 displacer_rod(displacer_shaft_len);
 translate([0, 0, disp_center_z]) displacer();
 }
-translate([0, parts_y_axis, -axle_to_deck - cyl_h]) tuna_tin_can();
+translate([0, parts_y_axis, -axle_to_deck - cyl_h])
+    color("DarkGrey") can401_body();
 }
 }
 } else if (mode == "Individual") {

@@ -27,9 +27,8 @@ bead_below_seam = 0.0;    // mm; extra offset; 0 = bead starts at seam base
 bead_h = 1.2;             // mm; axial height of bead land
 bead_chamfer = 45;        // deg; 45° lead-in on bottom edge of snap bead (press-on)
 
-/* [Engine snap ring — TPU; mates cold plate to can (uses lid skirt grip)] */
-ring_grip_z0 = 3.0;       // mm; profile z where can seam grip starts (plate-bottom reference)
-ring_clamp_shelf_z = 2.0; // mm; inward shelf height on plate side of profile
+/* [Engine snap ring — TPU; wedge seal + lid-skirt can grip] */
+ring_wedge_compress = 0.30; // mm radial squeeze of TPU pad into plate/rim gap at seal
 
 /* [Hidden] */
 can_body_id = can_body_od - 2 * can_wall_t;
@@ -73,26 +72,44 @@ function lid_skirt_profile_points() = [
     [lid_ir, 0]
 ];
 
-// Engine TPU snap ring: plate hook + lid-skirt can grip (revolved [radius, z] profile).
-// z=0 at foot (plate/can interface); +z toward can seam. Outer wall at lid_r.
-function can401_engine_snap_ring_profile(plate_od, clamp_overhang, grip_z0 = ring_grip_z0) = let(
-    hook_r = plate_od / 2 - clamp_overhang,
-    foot_r = lid_r,
-    z_top = grip_z0 + lid_skirt_h,
-    z_bead0 = grip_z0 + bead_z0,
-    z_bead1 = grip_z0 + bead_z1,
-    z_chamfer = grip_z0 + bead_z1 + chamfer_drop
+// Inner rim radius at can axial z (can coords, z=0 at can bottom).
+function can401_rim_inner_r(can_z) = let(
+    ri = can_body_id / 2,
+    seam_ri = ri + 0.35,
+    z_rim = can_h - can_rim_h,
+    z_step = z_rim + can_flange_step_h
+) (can_z <= z_rim) ? ri
+  : (can_z >= z_step) ? seam_ri
+  : ri + (seam_ri - ri) * (can_z - z_rim) / (z_step - z_rim);
+
+// Engine TPU snap ring: wedge pad at seated seal (z=0..plate_drop) + lid-skirt can grip above.
+// Profile z=0 at plate bottom; plate_drop = axial inset of plate into can mouth.
+function can401_engine_snap_ring_profile(
+    plate_od, plate_drop, clamp_overhang, wedge_compress = ring_wedge_compress
+) = let(
+    plate_r = plate_od / 2,
+    clamp_ir = plate_r - clamp_overhang,
+    ri = can_body_id / 2,
+    seam_ri = ri + 0.35,
+    wedge_r = seam_ri - wedge_compress,
+    z_mouth = plate_drop,
+    z_top = plate_drop + lid_skirt_h,
+    z_bead0 = plate_drop + bead_z0,
+    z_bead1 = plate_drop + bead_z1,
+    z_chamfer = plate_drop + bead_z1 + chamfer_drop
 ) [
-    [hook_r, 0],
-    [foot_r, 0],
-    [foot_r, z_top],
+    [clamp_ir, 0],
+    [lid_r, 0],
+    [lid_r, z_top],
     [lid_ir, z_top],
     [lid_ir, z_chamfer],
     [bead_ir, z_bead1],
     [bead_ir, z_bead0],
     [lid_ir, z_bead0],
-    [lid_ir, grip_z0],
-    [hook_r, ring_clamp_shelf_z]
+    [lid_ir, z_mouth],
+    [wedge_r, z_mouth],
+    [plate_r, z_mouth],
+    [plate_r, 0]
 ];
 
 // External wall profile [radius, z]: vertical body, short flange step, vertical seam, top curl.
@@ -146,9 +163,12 @@ module lid_skirt_profile() {
     polygon(lid_skirt_profile_points());
 }
 
-module can401_engine_snap_ring(plate_od, clamp_overhang, grip_z0 = ring_grip_z0) {
+module can401_engine_snap_ring(
+    plate_od, plate_drop, clamp_overhang, wedge_compress = ring_wedge_compress
+) {
     rotate_extrude(convexity = 12)
-        polygon(can401_engine_snap_ring_profile(plate_od, clamp_overhang, grip_z0));
+        polygon(can401_engine_snap_ring_profile(
+            plate_od, plate_drop, clamp_overhang, wedge_compress));
 }
 
 module can401_snap_lid() {

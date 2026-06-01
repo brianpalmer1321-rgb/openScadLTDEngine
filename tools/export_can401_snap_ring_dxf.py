@@ -2,11 +2,12 @@
 """Export Can401 engine snap ring profile to profiles/can401_snap_ring.dxf.
 
 Profile matches can401_engine_snap_ring_profile() in Can401_lib.scad
-(lid-skirt can grip + cold-plate hook).
+(wedge pad at seated seal + lid-skirt can grip).
 """
 
 from __future__ import annotations
 
+import math
 import re
 from pathlib import Path
 
@@ -14,9 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 LIB = ROOT / "Can401_lib.scad"
 OUT = ROOT / "profiles" / "can401_snap_ring.dxf"
 
-# LTDEngine defaults for plate hook (cold_plate_od derived in LTDEngine.scad)
-PLATE_OD = 99.21 - 2 * 0.25  # can_mouth_id − 2×cold_plate_rim_clearance
+PLATE_OD = 99.21 - 2 * 0.25
 CLAMP_OVERHANG = 2.5
+WEDGE_COMPRESS = 0.30
 
 
 def parse_constants(scad_path: Path) -> dict[str, float]:
@@ -24,14 +25,16 @@ def parse_constants(scad_path: Path) -> dict[str, float]:
     names = (
         "can_rim_od",
         "can_rim_h",
+        "can_h",
+        "can_wall_t",
+        "can_body_od",
         "lid_slip_clearance",
         "lid_skirt_h",
         "bead_id",
         "bead_h",
         "bead_below_seam",
         "bead_chamfer",
-        "ring_grip_z0",
-        "ring_clamp_shelf_z",
+        "ring_wedge_compress",
     )
     out: dict[str, float] = {}
     for name in names:
@@ -42,11 +45,29 @@ def parse_constants(scad_path: Path) -> dict[str, float]:
     return out
 
 
-def engine_snap_ring_profile(
-    c: dict[str, float], plate_od: float, clamp_overhang: float
-) -> list[tuple[float, float]]:
-    import math
+def cold_plate_drop(c: dict[str, float], plate_od: float) -> float:
+    inner_d = c["can_body_od"] - 2 * c["can_wall_t"]
+    ri = inner_d / 2
+    seam_ri = ri + 0.35
+    z_rim = c["can_h"] - c["can_rim_h"]
+    z_step = z_rim + 0.55
+    plate_r = plate_od / 2
+    if plate_r <= ri:
+        seat_z = z_rim
+    elif plate_r >= seam_ri:
+        seat_z = c["can_h"]
+    else:
+        seat_z = z_rim + (plate_r - ri) * (z_step - z_rim) / (seam_ri - ri)
+    return c["can_h"] - seat_z
 
+
+def engine_snap_ring_profile(
+    c: dict[str, float],
+    plate_od: float,
+    plate_drop: float,
+    clamp_overhang: float,
+    wedge_compress: float,
+) -> list[tuple[float, float]]:
     lid_id = c["can_rim_od"] + 2 * c["lid_slip_clearance"]
     lid_od = lid_id + 2.0
     lid_r = lid_od / 2
@@ -57,25 +78,29 @@ def engine_snap_ring_profile(
     bead_z1 = bead_z0 + c["bead_h"]
     chamfer_drop = (lid_ir - bead_ir) * math.tan(math.radians(c["bead_chamfer"]))
 
-    hook_r = plate_od / 2 - clamp_overhang
-    foot_r = lid_r
-    grip_z0 = c["ring_grip_z0"]
-    z_top = grip_z0 + c["lid_skirt_h"]
-    z_bead0 = grip_z0 + bead_z0
-    z_bead1 = grip_z0 + bead_z1
-    z_chamfer = grip_z0 + bead_z1 + chamfer_drop
+    plate_r = plate_od / 2
+    clamp_ir = plate_r - clamp_overhang
+    seam_ri = (c["can_body_od"] - 2 * c["can_wall_t"]) / 2 + 0.35
+    wedge_r = seam_ri - wedge_compress
+    z_mouth = plate_drop
+    z_top = plate_drop + c["lid_skirt_h"]
+    z_bead0 = plate_drop + bead_z0
+    z_bead1 = plate_drop + bead_z1
+    z_chamfer = plate_drop + bead_z1 + chamfer_drop
 
     return [
-        (hook_r, 0.0),
-        (foot_r, 0.0),
-        (foot_r, z_top),
+        (clamp_ir, 0.0),
+        (lid_r, 0.0),
+        (lid_r, z_top),
         (lid_ir, z_top),
         (lid_ir, z_chamfer),
         (bead_ir, z_bead1),
         (bead_ir, z_bead0),
         (lid_ir, z_bead0),
-        (lid_ir, grip_z0),
-        (hook_r, c["ring_clamp_shelf_z"]),
+        (lid_ir, z_mouth),
+        (wedge_r, z_mouth),
+        (plate_r, z_mouth),
+        (plate_r, 0.0),
     ]
 
 
@@ -140,12 +165,15 @@ def write_dxf(path: Path, profile: list[tuple[float, float]]) -> None:
 
 def main() -> None:
     c = parse_constants(LIB)
-    profile = engine_snap_ring_profile(c, PLATE_OD, CLAMP_OVERHANG)
+    drop = cold_plate_drop(c, PLATE_OD)
+    profile = engine_snap_ring_profile(
+        c, PLATE_OD, drop, CLAMP_OVERHANG, WEDGE_COMPRESS
+    )
     write_dxf(OUT, profile)
     height = max(p[1] for p in profile)
     od = 2 * max(p[0] for p in profile)
     print(f"Wrote {OUT}")
-    print(f"  height={height:.3f} mm  OD={od:.3f} mm  vertices={len(profile)}")
+    print(f"  plate_drop={drop:.3f} mm  height={height:.3f} mm  OD={od:.3f} mm")
 
 
 if __name__ == "__main__":

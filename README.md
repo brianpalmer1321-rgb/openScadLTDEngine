@@ -50,7 +50,7 @@ Names below match the OpenSCAD modules and assembly labels used in `LTDEngine.sc
 
 | Part name | Module | Qty | Role |
 |-----------|--------|-----|------|
-| Can snap ring | `can_snap_ring()` | 1 | **TPU** ring; 401 lid-skirt grip + cold-plate hook (`Can401_lib.scad`) |
+| Can snap ring | `can_snap_ring()` | 1 | **TPU** ring; wedge pad at seated rim seal + lid-skirt can grip |
 | Support frame (left) | `support_frame()` | 1 | Crankshaft bearing tower, left side |
 | Support frame (right) | `support_frame()` | 1 | Crankshaft bearing tower, right side (mirror of left) |
 | Flywheel | `flywheel_geom()` | 1 | Main inertia wheel on crankshaft |
@@ -121,4 +121,4 @@ Export each solid separately from the rendered view, or split the file into per-
 - Swept-volume ratio defaults to **40:1** (displacer → power cylinder sizing).
 - Power piston runs **90°** out of phase with the displacer crank.
 - Hardware assumptions: M3 mounting screws, M3 heat-set inserts in the **aluminum** cold plate, 8×4×3 mm bearings on the crank axle.
-- Cold plate OD is derived from the **401 can mouth** inner diameter (~99.2 mm at the rolled rim) minus `cold_plate_rim_clearance` (default 0.25 mm per side → **~98.7 mm OD**). The plate is lowered **`cold_plate_drop` (~3 mm)** until its OD contacts the inner rim wall for a seated seal. **TPU** snap ring clamp lip holds it on the can mouth.
+- Cold plate OD is derived from the **401 can mouth** inner diameter (~99.2 mm at the rolled rim) minus `cold_plate_rim_clearance` (default 0.25 mm per side → **~98.7 mm OD**). The plate is lowered **`cold_plate_drop` (~3 mm)** until its OD contacts the inner rim wall. The **TPU snap ring** uses a **wedge pad** (`ring_wedge_compress`) in the seal zone (plate bottom → can mouth) plus the lid-skirt bead on the seam above.

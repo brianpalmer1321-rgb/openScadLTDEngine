@@ -55,8 +55,9 @@ displacer_stroke_ratio = 0.55;    // stroke as fraction of usable bore depth
 /* [Cold side] */
 cold_plate_rim_clearance = 0.25; // mm radial gap; plate OD vs can mouth inner wall
 cold_plate_t = 6.35;     // mm aluminum plate thickness
-cold_plate_cup_depth = 0.05; // mm dish on top for cooling water; snap-ring rim overlap
-ring_clamp_overhang = 2.5;       // mm lip extends inward over plate OD edge (cold plate cup)
+cold_plate_cup_depth = 0.05; // mm optional dish on plate top (inside wedge bore)
+ring_clamp_overhang = 2.5;     // mm radial inset; wedge pad spans plate_r down to clamp_ir
+ring_wedge_compress = 0.30;    // mm TPU squeeze into rim at mouth (see Can401_lib)
 /* [Thermodynamic analysis] */
 T_hot_C = 50;               // hot-side boundary temp (°C), e.g. warm water on hot can
 T_cold_C = 20;              // cold-side boundary temp (°C), e.g. room air at cold plate
@@ -97,10 +98,9 @@ can_mouth_id = can_inner_d + 0.7; // rolled-rim inner step (Can401_lib seam_ri +
 cold_plate_od = can_mouth_id - 2 * cold_plate_rim_clearance;
 cold_plate_drop = can401_cold_plate_drop(cold_plate_od); // seat plate OD on inner rim
 cold_plate_bottom_z = -axle_to_deck - cold_plate_drop;   // world z; can top at -axle_to_deck
-ring_clamp_inner_d = cold_plate_od - 2 * ring_clamp_overhang; // inward hook over plate rim
-snap_ring_profile = can401_engine_snap_ring_profile(cold_plate_od, ring_clamp_overhang);
-snap_ring_t = profile_max_z(snap_ring_profile); // axial extent from profile
-ring_z_offset = cold_plate_t - snap_ring_t; // flipped ring: foot on plate top, groove into can
+snap_ring_profile = can401_engine_snap_ring_profile(
+    cold_plate_od, cold_plate_drop, ring_clamp_overhang, ring_wedge_compress);
+snap_ring_t = profile_max_z(snap_ring_profile);
 
 // ==========================================
 // 1. LTD OPTIMIZED THERMODYNAMIC CALCULATIONS
@@ -498,15 +498,22 @@ module cold_plate() {
         translate([right_support_x, parts_y_axis, 0]) insert_pockets();
         if (cold_plate_cup_depth > 0)
             translate([0, 0, cold_plate_t - cold_plate_cup_depth])
-                cylinder(d=ring_clamp_inner_d, h=cold_plate_cup_depth + 0.01, center=false);
+                cylinder(
+                    d=cold_plate_od - 2 * ring_clamp_overhang - 1,
+                    h=cold_plate_cup_depth + 0.01, center=false);
     }
 }
-// TPU snap ring: 401 lid-skirt grip + cold-plate hook (Can401_lib); Z-flipped for assembly
+module brass_tube_seal() {
+    color("Gold") difference() {
+        cylinder(h=seal_h, d=seal_od, center=false);
+        translate([0, 0, -1]) cylinder(h=seal_h + 2, d=seal_id, center=false);
+    }
+}
+// TPU snap ring: wedge pad at seated rim seal + lid-skirt grip (plate-local z, no flip)
 module can_snap_ring() {
     color("Teal")
-        translate([0, 0, snap_ring_t])
-        mirror([0, 0, 1])
-        can401_engine_snap_ring(cold_plate_od, ring_clamp_overhang);
+        can401_engine_snap_ring(
+            cold_plate_od, cold_plate_drop, ring_clamp_overhang, ring_wedge_compress);
 }
 module flywheel_geom() {
     collar_z = flywheel_w / 2 + flywheel_collar_h / 2;
@@ -607,7 +614,8 @@ translate([left_support_x, parts_y_axis, 0]) support_frame();
 translate([right_support_x, parts_y_axis, 0]) mirror([1, 0, 0]) support_frame();
 translate([0, parts_y_axis, cold_plate_bottom_z]) {
 cold_plate();
-translate([0, 0, ring_ez + ring_z_offset]) can_snap_ring();
+translate([0, 0, -1]) brass_tube_seal(); // press-fit bore; bottom aligned with plate cut
+translate([0, 0, ring_ez]) can_snap_ring();
 translate([power_piston_x, parts_y_axis, cold_plate_t]) power_cylinder();
 }
 }

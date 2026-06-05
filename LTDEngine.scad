@@ -13,7 +13,7 @@ can_body_od = 98.93;  // mm; BMT body plug OD (bore/displacer sizing)
 can_wall_t = 0.21;    // mm; tinplate wall
 cyl_h = 47;           // mm; can height (must match Can401_lib can_h)
 /* [Layout & cranktrain] */
-axle_to_deck = 80;  // crank Z=0 to cold plate; keep ≥ flywheel_d/2 + margin
+axle_to_deck = 80;  // crank Z=0 to cold-plate top; keep ≥ flywheel_d/2 + margin
 flywheel_d = 140;
 flywheel_w = 8;
 flywheel_collar_od = 10;
@@ -75,7 +75,7 @@ disp_flange_pin_z_offset = (flange_t + 2) / 2 + 4; // tab clevis pin height abov
 power_cyl_boss_h = 5;         // power cylinder pedestal on cold plate
 frame_w = 30; frame_t = 5; slot_tolerance = 0.2; parts_y_axis = 0;
 shaft_tube_bearing_gap = 0.5;
-frame_slot_z = cold_plate_t / 2;     // frame slot cut height on thicker plate
+frame_foot_h = 5;          // support foot pad thickness (sits on cold-plate top)
 // Individual-mode export plate layout (build-plate positions; 2 mm+ gaps)
 ind_x_snap_ring = -170;
 ind_x_cold = -65; ind_y_row1 = -35; ind_x_pwr_cyl = 65;
@@ -97,7 +97,9 @@ can_inner_d = can_body_od - 2 * can_wall_t;
 can_mouth_id = can_inner_d + 0.7; // rolled-rim inner step (Can401_lib seam_ri + 0.35 mm)
 cold_plate_od = can_mouth_id - 2 * cold_plate_rim_clearance;
 cold_plate_drop = can401_cold_plate_drop(cold_plate_od); // seat plate OD on inner rim
-cold_plate_bottom_z = -axle_to_deck - cold_plate_drop;   // world z; can top at -axle_to_deck
+cold_plate_top_z = -axle_to_deck;                        // deck reference; crank-to-plate-top distance
+cold_plate_bottom_z = cold_plate_top_z - cold_plate_t;
+can_top_z = cold_plate_bottom_z + cold_plate_drop;         // 401 rim seat preserved
 snap_ring_profile = can401_engine_snap_ring_profile(
     cold_plate_od, cold_plate_drop, ring_clamp_overhang, ring_wedge_compress);
 snap_ring_t = profile_max_z(snap_ring_profile);
@@ -125,12 +127,12 @@ power_cyl_h = power_stroke + power_piston_h + 2 * power_piston_axial_clearance;
 power_piston_od = power_cyl_id - 0.15;
 power_piston_clevis_boss_h = 6; // fixed fork height at pin (original h=8 design)
 displacer_crank_r = displacer_stroke / 2; power_crank_r = power_stroke / 2;
-disp_can_bottom_z = -axle_to_deck - cyl_h;
-disp_can_top_z = -axle_to_deck - displacer_axial_clearance;
+disp_can_top_z = can_top_z - displacer_axial_clearance;
+disp_can_bottom_z = can_top_z - cyl_h;
 disp_z_min = disp_can_bottom_z + displacer_axial_clearance + displacer_h / 2;
 disp_z_max = disp_can_top_z - displacer_axial_clearance - displacer_h / 2;
 disp_center_mid_z = (disp_z_min + disp_z_max) / 2;
-power_cyl_base_z = cold_plate_bottom_z + cold_plate_t;
+power_cyl_base_z = cold_plate_top_z;
 power_cyl_bore_top_z = power_cyl_base_z + power_cyl_h;
 power_piston_base_min = power_cyl_base_z + power_piston_axial_clearance;
 power_piston_base_max = power_cyl_bore_top_z - power_piston_axial_clearance - power_piston_h;
@@ -307,6 +309,10 @@ module mounting_holes(h_len=20) {
     translate([0, -screw_pitch/2, -h_len/2]) cylinder(d=screw_d, h=h_len, center=false);
     translate([0, screw_pitch/2, -h_len/2]) cylinder(d=screw_d, h=h_len, center=false);
 }
+module mounting_holes_from_top(z_top, h_len=20) {
+    translate([0, -screw_pitch/2, z_top - h_len]) cylinder(d=screw_d, h=h_len, center=false);
+    translate([0, screw_pitch/2, z_top - h_len]) cylinder(d=screw_d, h=h_len, center=false);
+}
 module insert_pockets() {
     insert_z = cold_plate_t - insert_depth;
     translate([0, -screw_pitch/2, insert_z])
@@ -342,16 +348,17 @@ module crank_shaft_tube(len) {
     }
 }
 module support_frame() {
+    // Local z=0 = foot bottom on cold-plate top; bearing axis at z = axle_to_deck.
     difference() {
         union() {
             hull() {
-                rotate([90, 0, 90]) cylinder(d=14, h=frame_t, center=true);
-                translate([0, 0, cold_plate_bottom_z + frame_slot_z]) cube([frame_t, frame_w, 5], center=true);
+                translate([0, 0, axle_to_deck]) rotate([90, 0, 90]) cylinder(d=14, h=frame_t, center=true);
+                translate([0, 0, frame_foot_h / 2]) cube([frame_t, frame_w, frame_foot_h], center=true);
             }
-            rotate([90, 0, 90]) cylinder(d=14, h=frame_t, center=true);
+            translate([0, 0, axle_to_deck]) rotate([90, 0, 90]) cylinder(d=14, h=frame_t, center=true);
         }
-        rotate([90, 0, 90]) bearing_pocket();
-        translate([0, 0, cold_plate_bottom_z + frame_slot_z]) mounting_holes(h_len=50);
+        translate([0, 0, axle_to_deck]) rotate([90, 0, 90]) bearing_pocket();
+        mounting_holes_from_top(frame_foot_h, frame_foot_h + cold_plate_t + 5);
     }
 }
 // Fork tab: square shank, +Z crown rounded to link_disc_d (matches link_end_disc arc)
@@ -490,10 +497,8 @@ module cold_plate() {
         }
         translate([0, 0, -1]) cylinder(d=seal_od, h=10, center=false);
         translate([power_piston_x, parts_y_axis, -1]) cylinder(d=power_cyl_id, h=15, center=false);
-        translate([left_support_x, parts_y_axis, frame_slot_z]) cube([frame_t + slot_tolerance, frame_w + slot_tolerance, 2.5], center=true);
-        translate([right_support_x, parts_y_axis, frame_slot_z]) cube([frame_t + slot_tolerance, frame_w + slot_tolerance, 2.5], center=true);
-        translate([left_support_x, parts_y_axis, frame_slot_z]) mounting_holes(h_len=50);
-        translate([right_support_x, parts_y_axis, frame_slot_z]) mounting_holes(h_len=50);
+        translate([left_support_x, parts_y_axis, 0]) mounting_holes_from_top(cold_plate_t, cold_plate_t + 2);
+        translate([right_support_x, parts_y_axis, 0]) mounting_holes_from_top(cold_plate_t, cold_plate_t + 2);
         translate([left_support_x, parts_y_axis, 0]) insert_pockets();
         translate([right_support_x, parts_y_axis, 0]) insert_pockets();
         if (cold_plate_cup_depth > 0)
@@ -610,8 +615,8 @@ translate([0, piston_pin_y, piston_pin_z]) rotate([-piston_rot_x, 0, 0]) linkage
 
 // 2. CHASSIS MOUNT DECK (Spans downward to frame top beds)
 translate([0, 0, -ez]) {
-translate([left_support_x, parts_y_axis, 0]) support_frame();
-translate([right_support_x, parts_y_axis, 0]) mirror([1, 0, 0]) support_frame();
+translate([left_support_x, parts_y_axis, cold_plate_top_z]) support_frame();
+translate([right_support_x, parts_y_axis, cold_plate_top_z]) mirror([1, 0, 0]) support_frame();
 translate([0, parts_y_axis, cold_plate_bottom_z]) {
 cold_plate();
 translate([0, 0, -1]) brass_tube_seal(); // press-fit bore; bottom aligned with plate cut
@@ -636,7 +641,7 @@ translate([0, 0, disp_rod_attach_z]) mirror([0, 0, 1])
 displacer_rod(displacer_shaft_len);
 translate([0, 0, disp_center_z]) displacer();
 }
-translate([0, parts_y_axis, -axle_to_deck - cyl_h])
+translate([0, parts_y_axis, disp_can_bottom_z])
     color("DarkGrey") can401_body();
 }
 }

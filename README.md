@@ -122,3 +122,5 @@ Export each solid separately from the rendered view, or split the file into per-
 - Power piston runs **90°** out of phase with the displacer crank.
 - Hardware assumptions: M3 mounting screws, M3 heat-set inserts in the **aluminum** cold plate, 8×4×3 mm bearings on the crank axle.
 - Cold plate OD is derived from the **401 can mouth** inner diameter (~99.2 mm at the rolled rim) minus `cold_plate_rim_clearance` (default 0.25 mm per side → **~98.7 mm OD**). The plate is lowered **`cold_plate_drop` (~3 mm)** until its OD contacts the inner rim wall. The **TPU snap ring** uses a **wedge pad** (`ring_wedge_compress`) in the seal zone (plate bottom → can mouth) plus the lid-skirt bead on the seam above.
+- **`axle_to_deck`** is the vertical distance from the crank axle (Z=0) to the **cold-plate top** (deck). Support frames bolt down onto the deck (`frame_foot_h` pad at `cold_plate_top_z`); M3 screws pass through the frame foot into heat-set inserts in the plate top.
+- Rebuilding after a deck-mount fix changes the **displacer shaft cut length** slightly (~3 mm) because the hot can re-anchors to the rim seat while the deck moves to the nominal `axle_to_deck` height.

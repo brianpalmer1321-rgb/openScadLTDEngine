@@ -162,8 +162,11 @@ function schmidt_work_per_rev(V_c0, V_e0, V_p, V_d, phase_deg, p_m) =
 T_hot_K = T_hot_C + 273.15;
 T_cold_K = T_cold_C + 273.15;
 eta_carnot = (T_hot_K > T_cold_K) ? (1 - T_cold_K / T_hot_K) : 0;
-V_c0_dead = (3.14159265 / 4) * power_cyl_id * power_cyl_id
+V_c0_clearance_dead = (3.14159265 / 4) * power_cyl_id * power_cyl_id
     * (2 * power_piston_axial_clearance + 3) * dead_volume_scale;
+V_passage_dead = (3.14159265 / 4) * power_cyl_id * power_cyl_id
+    * cold_plate_t * dead_volume_scale; // power cyl bore through deck (hot ↔ cold gas path)
+V_c0_dead = V_c0_clearance_dead + V_passage_dead;
 can_annulus_area = 3.14159265 / 4 * (can_inner_d * can_inner_d - displacer_d * displacer_d);
 V_e0_dead = (displacer_area * 2 * displacer_axial_clearance
     + can_annulus_area * cyl_h * 0.35
@@ -185,6 +188,8 @@ echo(str("Displacer swept volume: ", displacer_swept_vol / 1000, " cm³ (",
     displacer_stroke, " mm stroke)"));
 echo(str("Power swept volume: ", power_swept_vol / 1000, " cm³ (",
     power_stroke, " mm stroke, ID ", power_cyl_id, " mm)"));
+echo(str("Plate gas passage dead volume: ", V_passage_dead / 1000,
+    " cm³ (power bore ID ", power_cyl_id, " mm × cold_plate_t ", cold_plate_t, " mm)"));
 echo(str("Dead volume (cold / hot): ", V_c0_dead / 1000, " / ",
     V_e0_dead / 1000, " cm³"));
 echo(str("Volume efficiency (displacer / power): ",

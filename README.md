@@ -91,8 +91,7 @@ The crankshaft is built from **3 mm rod** segments in the assembly (grey cylinde
 
 | Part name | Parameter | Qty | Notes |
 |-----------|-----------|-----|-------|
-| Frame mounting screw | `screw_d` | 4 | M3 × ~16 mm pitch across frames (2 per frame) |
-| M3 heat-set insert | `insert_hole_d` / `insert_depth` | 4 | Brass inserts in cold plate (2 per frame mount) |
+| Frame mounting screw | `screw_d` | 4 | M3 from top into each end foot (2 per frame); cold plate not drilled |
 | Crank-arm setscrew | `setscrew_d` | 4 | M3 grub screw per crank arm collar (timing trim) |
 | Frame bearing | `bearing_pocket()` | 2 | 8×4×3 mm (e.g. S693ZZ / S693-2RS class) |
 
@@ -102,7 +101,7 @@ When `mode = "Individual"`, parts are placed on the build plate in this order (l
 
 | Part name | Approx. layout position |
 |-----------|-------------------------|
-| Cold plate (aluminum; insert pockets up) | Left — optional STL export |
+| Cold plate (aluminum; deck up) | Left — optional STL export |
 | Can snap ring | Left of cold plate |
 | Power cylinder | Right of cold plate |
 | Power piston | Center |
@@ -120,7 +119,7 @@ Export each solid separately from the rendered view, or split the file into per-
 
 - Swept-volume ratio defaults to **40:1** (displacer → power cylinder sizing).
 - Power piston runs **90°** out of phase with the displacer crank.
-- Hardware assumptions: M3 mounting screws, M3 heat-set inserts in the **aluminum** cold plate, 8×4×3 mm bearings on the crank axle.
+- Hardware assumptions: M3 frame screws (4 total) into **printed end feet** only — no cold-plate frame holes, 8×4×3 mm bearings on the crank axle.
 - Cold plate OD is derived from the **401 can mouth** inner diameter (~99.2 mm at the rolled rim) minus `cold_plate_rim_clearance` (default 0.25 mm per side → **~98.7 mm OD**). The plate is lowered **`cold_plate_drop` (~3 mm)** until its OD contacts the inner rim wall. The **TPU snap ring** uses a **wedge pad** (`ring_wedge_compress`) in the seal zone (plate bottom → can mouth) plus the lid-skirt bead on the seam above.
-- **`axle_to_deck`** is the vertical distance from the crank axle (Z=0) to the **cold-plate top** (deck). Support frames bolt down onto the deck (`frame_foot_h` pad at `cold_plate_top_z`); M3 screws pass through the frame foot into heat-set inserts in the plate top.
+- **`axle_to_deck`** is the vertical distance from the crank axle (Z=0) to the **cold-plate top** (deck). Each support frame has a **T-shaped foot**: a center stem under the tower plus **end feet** on ±Y (`frame_foot_pad_w` each, total base span `frame_w`). M3 screws drop through the end feet from above and thread into the printed foot; the cold plate stays unperforated at the frame mounts.
 - Rebuilding after a deck-mount fix changes the **displacer shaft cut length** slightly (~3 mm) because the hot can re-anchors to the rim seat while the deck moves to the nominal `axle_to_deck` height.

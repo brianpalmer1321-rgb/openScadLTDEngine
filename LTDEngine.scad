@@ -29,9 +29,11 @@ sv_ratio = 40.0;      // displacer:power swept-volume ratio
 /* [Hardware & Mounting] */
 pin_d = 1.5;          // silver linkage / clevis pins (mm)
 rod_od = 3;           // crankshaft rod stock
-screw_d = 3.2; screw_pitch = 16;
-insert_hole_d = 4.0;  // press-fit bore for M3 heat-set insert (tune to your inserts)
-insert_depth = 3.5;   // pocket depth; cold plate thickness = cold_plate_t
+screw_d = 3.2;                       // M3 clearance in frame-foot mount holes
+frame_foot_pad_w = 8;                // mm Y-width of each end foot; total base span = frame_w
+frame_stem_y_w = 14;                 // mm Y-width of center stem under tower (matches tower OD)
+frame_mount_tap_d = 2.5;             // M3 tap drill in printed foot (tune to your thread)
+frame_mount_tap_depth = 4.5;         // mm thread depth from foot bottom
 setscrew_d = 2.5;   // M3 grub screw (clearance/tap hole)
 collar_od = 10;
 collar_len = 5;     // grip length on crankshaft for timing adjustment
@@ -76,6 +78,7 @@ power_cyl_boss_h = 5;         // power cylinder pedestal on cold plate
 frame_w = 30; frame_t = 5; slot_tolerance = 0.2; parts_y_axis = 0;
 shaft_tube_bearing_gap = 0.5;
 frame_foot_h = 5;          // support foot pad thickness (sits on cold-plate top)
+frame_foot_y = (frame_w - frame_foot_pad_w) / 2; // ±Y center of each end foot
 // Individual-mode export plate layout (build-plate positions; 2 mm+ gaps)
 ind_x_snap_ring = -170;
 ind_x_cold = -65; ind_y_row1 = -35; ind_x_pwr_cyl = 65;
@@ -305,20 +308,34 @@ module bearing_pocket() {
     cylinder(d=bearing_pocket_od, h=bearing_pocket_h, center=false);
     translate([0, 0, -6]) cylinder(d=bearing_shaft_hole_d, h=10, center=false);
 }
-module mounting_holes(h_len=20) {
-    translate([0, -screw_pitch/2, -h_len/2]) cylinder(d=screw_d, h=h_len, center=false);
-    translate([0, screw_pitch/2, -h_len/2]) cylinder(d=screw_d, h=h_len, center=false);
+module support_frame_foot_base() {
+    translate([0, 0, frame_foot_h / 2]) {
+        cube([frame_t, frame_stem_y_w, frame_foot_h], center=true);
+        for (y = [frame_foot_y, -frame_foot_y])
+            hull() {
+                cube([frame_t, frame_stem_y_w, frame_foot_h], center=true);
+                translate([0, y, 0])
+                    cube([frame_t, frame_foot_pad_w, frame_foot_h], center=true);
+            }
+    }
 }
-module mounting_holes_from_top(z_top, h_len=20) {
-    translate([0, -screw_pitch/2, z_top - h_len]) cylinder(d=screw_d, h=h_len, center=false);
-    translate([0, screw_pitch/2, z_top - h_len]) cylinder(d=screw_d, h=h_len, center=false);
+module support_frame_tower() {
+    // Pillar only over the center stem — do not hull outer feet to the bearing.
+    hull() {
+        translate([0, 0, axle_to_deck]) rotate([90, 0, 90]) cylinder(d=14, h=frame_t, center=true);
+        translate([0, 0, frame_foot_h / 2])
+            cube([frame_t, frame_stem_y_w, frame_foot_h], center=true);
+    }
+    translate([0, 0, axle_to_deck]) rotate([90, 0, 90]) cylinder(d=14, h=frame_t, center=true);
 }
-module insert_pockets() {
-    insert_z = cold_plate_t - insert_depth;
-    translate([0, -screw_pitch/2, insert_z])
-        cylinder(d=insert_hole_d, h=insert_depth + 0.1, center=false);
-    translate([0, screw_pitch/2, insert_z])
-        cylinder(d=insert_hole_d, h=insert_depth + 0.1, center=false);
+module frame_foot_mount_holes() {
+    clearance_h = max(0.1, frame_foot_h - frame_mount_tap_depth);
+    for (y = [-frame_foot_y, frame_foot_y])
+        translate([0, y, 0]) {
+            cylinder(d=frame_mount_tap_d, h=frame_mount_tap_depth + 0.01, center=false);
+            translate([0, 0, frame_mount_tap_depth - 0.01])
+                cylinder(d=screw_d, h=clearance_h + 0.02, center=false);
+        }
 }
 // Shaft stub along X only (omit if length <= 0)
 module shaft_span_x(x_left, x_right) {
@@ -351,14 +368,11 @@ module support_frame() {
     // Local z=0 = foot bottom on cold-plate top; bearing axis at z = axle_to_deck.
     difference() {
         union() {
-            hull() {
-                translate([0, 0, axle_to_deck]) rotate([90, 0, 90]) cylinder(d=14, h=frame_t, center=true);
-                translate([0, 0, frame_foot_h / 2]) cube([frame_t, frame_w, frame_foot_h], center=true);
-            }
-            translate([0, 0, axle_to_deck]) rotate([90, 0, 90]) cylinder(d=14, h=frame_t, center=true);
+            support_frame_foot_base();
+            support_frame_tower();
         }
         translate([0, 0, axle_to_deck]) rotate([90, 0, 90]) bearing_pocket();
-        mounting_holes_from_top(frame_foot_h, frame_foot_h + cold_plate_t + 5);
+        frame_foot_mount_holes();
     }
 }
 // Fork tab: square shank, +Z crown rounded to link_disc_d (matches link_end_disc arc)
@@ -497,10 +511,6 @@ module cold_plate() {
         }
         translate([0, 0, -1]) cylinder(d=seal_od, h=10, center=false);
         translate([power_piston_x, parts_y_axis, -1]) cylinder(d=power_cyl_id, h=15, center=false);
-        translate([left_support_x, parts_y_axis, 0]) mounting_holes_from_top(cold_plate_t, cold_plate_t + 2);
-        translate([right_support_x, parts_y_axis, 0]) mounting_holes_from_top(cold_plate_t, cold_plate_t + 2);
-        translate([left_support_x, parts_y_axis, 0]) insert_pockets();
-        translate([right_support_x, parts_y_axis, 0]) insert_pockets();
         if (cold_plate_cup_depth > 0)
             translate([0, 0, cold_plate_t - cold_plate_cup_depth])
                 cylinder(

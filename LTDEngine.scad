@@ -61,9 +61,11 @@ displacer_stroke_ratio = 0.55;    // stroke as fraction of usable bore depth
 cold_plate_rim_clearance = 0.08; // mm radial gap; plate OD vs can mouth inner wall
 cold_plate_t = 2.87;     // mm aluminum plate thickness
 cold_plate_cup_depth = 0; // mm optional dish on plate top (inside wedge bore)
-ring_clamp_overhang = 2.5;     // mm radial inset; wedge pad spans plate_r down to clamp_ir
+ring_clamp_overhang = 3; // [0:0.1:10] mm lip inward over cold-plate top
 ring_wedge_compress = 0.30;    // mm TPU squeeze into rim at mouth (see Can401_lib)
-ring_z_offset = -4.7;          // mm; assembled Z nudge after flip (negative = toward can)
+ring_bead_z_offset = 0.5; // [0:0.1:3] mm; +shifts snap bead down the can (less rim intersection)
+ring_od_extra = 0.5; // [0:0.1:2] mm; added to outer radius (thicker sidewall for printing)
+ring_z_offset = -4.8; // [-10:0.1:0] mm; assembled Z nudge after flip (negative = toward can)
 /* [Thermodynamic analysis] */
 T_hot_C = 50;               // hot-side boundary temp (°C), e.g. warm water on hot can
 T_cold_C = 20;              // cold-side boundary temp (°C), e.g. room air at cold plate
@@ -108,7 +110,8 @@ cold_plate_top_z = -axle_to_deck;                        // deck reference; cran
 cold_plate_bottom_z = cold_plate_top_z - cold_plate_t;
 can_top_z = cold_plate_bottom_z + cold_plate_drop;         // 401 rim seat preserved
 snap_ring_profile = can401_engine_snap_ring_profile(
-    cold_plate_od, cold_plate_drop, ring_clamp_overhang, ring_wedge_compress);
+    cold_plate_od, cold_plate_drop, ring_clamp_overhang,
+    ring_wedge_compress, ring_bead_z_offset, ring_od_extra);
 snap_ring_t = profile_max_z(snap_ring_profile);
 
 // ==========================================
@@ -553,13 +556,18 @@ module brass_tube_seal() {
         translate([0, 0, -1]) cylinder(h=seal_h + 2, d=seal_id, center=false);
     }
 }
-// TPU snap ring: wedge pad + lid-skirt grip; Z-flipped 180° for assembly
-module can_snap_ring() {
+// TPU snap ring geometry in print orientation: clamp face at z=0 (bed), skirt +Z.
+module can_snap_ring_geom() {
     color("Teal")
-        translate([0, 0, snap_ring_t])
+        can401_engine_snap_ring(
+            cold_plate_od, cold_plate_drop, ring_clamp_overhang,
+            ring_wedge_compress, ring_bead_z_offset, ring_od_extra);
+}
+// Assembled orientation: Z-flipped so skirt hangs over can rim
+module can_snap_ring() {
+    translate([0, 0, snap_ring_t])
         mirror([0, 0, 1])
-            can401_engine_snap_ring(
-                cold_plate_od, cold_plate_drop, ring_clamp_overhang, ring_wedge_compress);
+            can_snap_ring_geom();
 }
 module flywheel_geom() {
     collar_z = flywheel_w / 2 + flywheel_collar_h / 2;
@@ -691,7 +699,8 @@ translate([0, parts_y_axis, disp_can_bottom_z])
 if (export_show("Cold plate ref"))
     translate(ind_on_plate ? [ind_x_cold, ind_y_row1, 0] : [0, 0, 0]) cold_plate();
 if (export_show("Snap ring"))
-    translate(ind_on_plate ? [ind_x_snap_ring, ind_y_row1, 0] : [0, 0, 0]) can_snap_ring();
+    // Print upside-down vs assembly: clamp face on bed, no supports
+    translate(ind_on_plate ? [ind_x_snap_ring, ind_y_row1, 0] : [0, 0, 0]) can_snap_ring_geom();
 if (export_show("Power cylinder"))
     translate(ind_on_plate ? [ind_x_pwr_cyl, ind_y_row1, 0] : [0, 0, 0]) power_cylinder();
 if (export_show("Power piston"))

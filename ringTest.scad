@@ -12,7 +12,7 @@ $fn = 80;
 /* [Cold plate reference — LTDEngine defaults] */
 cold_plate_rim_clearance = 0.08;
 cold_plate_t = 2.87;
-ring_clamp_overhang = 2.5;
+ring_clamp_overhang = 3; // mm lip inward over cold-plate top
 ring_wedge_compress = 0.30;
 
 /* [Hidden] */

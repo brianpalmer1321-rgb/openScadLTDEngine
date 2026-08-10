@@ -90,9 +90,11 @@ DISPLACER_STROKE_RATIO = 0.55
 COLD_PLATE_RIM_CLEARANCE = 0.08
 COLD_PLATE_T = 2.87
 COLD_PLATE_CUP_DEPTH = 0.0
-RING_CLAMP_OVERHANG = 2.5
+RING_CLAMP_OVERHANG = 3.0  # mm lip inward over cold-plate top
 RING_WEDGE_COMPRESS = 0.30
-RING_Z_OFFSET = -4.7  # mm; assembled Z nudge after flip (negative = toward can)
+RING_BEAD_Z_OFFSET = 0.5  # mm; +shifts snap bead down the can after assembly flip
+RING_OD_EXTRA = 0.5  # mm; added to outer radius (thicker sidewall for printing)
+RING_Z_OFFSET = -4.8  # mm; assembled Z nudge after flip (negative = toward can)
 
 # Hidden / fixed
 PARTS_Y_AXIS = 0.0
@@ -348,69 +350,76 @@ def _can401_rim_wall_profile():
     ]
 
 
-def _can401_snap_ring_profile(plate_od, plate_drop, clamp_overhang, wedge_compress):
-    """Full OpenSCAD profile (may self-touch at z=0; not used directly in Fusion)."""
+def _can401_snap_ring_profile(plate_od, plate_drop, clamp_overhang, wedge_compress=None,
+                              bead_z_offset=None, od_extra=None):
+    """Full profile: clamp on z=0 (print bed), dual 45° bead, shelf at mouth."""
+    if bead_z_offset is None:
+        bead_z_offset = RING_BEAD_Z_OFFSET
+    if od_extra is None:
+        od_extra = RING_OD_EXTRA
     plate_r = plate_od / 2
     clamp_ir = plate_r - clamp_overhang
-    ri = (CAN_BODY_OD - 2 * CAN_WALL_T) / 2
-    seam_ri = ri + 0.35
-    wedge_r = seam_ri - wedge_compress
+    outer_r = LID_OD / 2 + od_extra
     z_mouth = plate_drop
     z_top = plate_drop + LID_SKIRT_H
-    bead_z0 = plate_drop + (CAN_RIM_H + BEAD_H / 2 + BEAD_BELOW_SEAM - BEAD_H / 2)
+    bead_z0 = plate_drop + (CAN_RIM_H + BEAD_H / 2 + BEAD_BELOW_SEAM - BEAD_H / 2) + bead_z_offset
     bead_z1 = bead_z0 + BEAD_H
     chamfer_drop = (LID_ID / 2 - BEAD_ID / 2) * math.tan(math.radians(BEAD_CHAMFER))
-    z_chamfer = plate_drop + bead_z1 + chamfer_drop
+    z_chamfer_hi = bead_z1 + chamfer_drop
+    z_chamfer_lo = bead_z0 - chamfer_drop
     return [
         (clamp_ir, 0),
-        (LID_OD / 2, 0),
-        (LID_OD / 2, z_top),
+        (outer_r, 0),
+        (outer_r, z_top),
         (LID_ID / 2, z_top),
-        (LID_ID / 2, z_chamfer),
+        (LID_ID / 2, z_chamfer_hi),
         (BEAD_ID / 2, bead_z1),
         (BEAD_ID / 2, bead_z0),
-        (LID_ID / 2, bead_z0),
+        (LID_ID / 2, z_chamfer_lo),
         (LID_ID / 2, z_mouth),
-        (wedge_r, z_mouth),
-        (plate_r, z_mouth),
-        (plate_r, 0),
-    ]
-
-
-def _can401_snap_ring_wedge_profile(plate_od, plate_drop, clamp_overhang, wedge_compress):
-    """Inner TPU wedge at plate seat — simple closed loop for Fusion revolve."""
-    plate_r = plate_od / 2
-    clamp_ir = plate_r - clamp_overhang
-    ri = (CAN_BODY_OD - 2 * CAN_WALL_T) / 2
-    wedge_r = ri + 0.35 - wedge_compress
-    z_mouth = plate_drop
-    return [
-        (clamp_ir, 0),
         (clamp_ir, z_mouth),
-        (wedge_r, z_mouth),
-        (plate_r, z_mouth),
-        (plate_r, 0),
     ]
 
 
-def _can401_snap_ring_skirt_profile(plate_od, plate_drop):
-    """Outer lid-skirt grip above the mouth — avoids z=0 profile overlap."""
+def _can401_snap_ring_clamp_profile(plate_od, plate_drop, clamp_overhang, od_extra=None):
+    """Clamp body: face at z=0 (print bed) through mouth shelf."""
+    if od_extra is None:
+        od_extra = RING_OD_EXTRA
     plate_r = plate_od / 2
+    clamp_ir = plate_r - clamp_overhang
+    outer_r = LID_OD / 2 + od_extra
+    z_mouth = plate_drop
+    return [
+        (clamp_ir, 0),
+        (outer_r, 0),
+        (outer_r, z_mouth),
+        (clamp_ir, z_mouth),
+    ]
+
+
+def _can401_snap_ring_skirt_profile(plate_od, plate_drop, bead_z_offset=None, od_extra=None):
+    """Skirt above mouth; dual 45° bead for support-free upside-down printing."""
+    if bead_z_offset is None:
+        bead_z_offset = RING_BEAD_Z_OFFSET
+    if od_extra is None:
+        od_extra = RING_OD_EXTRA
+    outer_r = LID_OD / 2 + od_extra
     z_mouth = plate_drop
     z_top = plate_drop + LID_SKIRT_H
-    bead_z0 = plate_drop + (CAN_RIM_H + BEAD_H / 2 + BEAD_BELOW_SEAM - BEAD_H / 2)
+    bead_z0 = plate_drop + (CAN_RIM_H + BEAD_H / 2 + BEAD_BELOW_SEAM - BEAD_H / 2) + bead_z_offset
     bead_z1 = bead_z0 + BEAD_H
     chamfer_drop = (LID_ID / 2 - BEAD_ID / 2) * math.tan(math.radians(BEAD_CHAMFER))
-    z_chamfer = plate_drop + bead_z1 + chamfer_drop
+    z_chamfer_hi = bead_z1 + chamfer_drop
+    z_chamfer_lo = bead_z0 - chamfer_drop
     return [
         (LID_ID / 2, z_mouth),
-        (LID_ID / 2, z_chamfer),
-        (BEAD_ID / 2, bead_z1),
+        (LID_ID / 2, z_chamfer_lo),
         (BEAD_ID / 2, bead_z0),
-        (LID_ID / 2, bead_z0),
+        (BEAD_ID / 2, bead_z1),
+        (LID_ID / 2, z_chamfer_hi),
         (LID_ID / 2, z_top),
-        (LID_OD / 2, z_top),
-        (LID_OD / 2, z_mouth),
+        (outer_r, z_top),
+        (outer_r, z_mouth),
     ]
 
 
@@ -739,13 +748,13 @@ def build_brass_seal(comp):
 
 
 def build_snap_ring(comp, d):
-    wedge = _revolve(
+    clamp = _revolve(
         comp,
-        _can401_snap_ring_wedge_profile(
-            d.cold_plate_od, d.cold_plate_drop, RING_CLAMP_OVERHANG, RING_WEDGE_COMPRESS,
+        _can401_snap_ring_clamp_profile(
+            d.cold_plate_od, d.cold_plate_drop, RING_CLAMP_OVERHANG,
         ),
         0,
-        name="SnapRingWedge",
+        name="SnapRingClamp",
     )
     skirt = _revolve(
         comp,
@@ -753,7 +762,7 @@ def build_snap_ring(comp, d):
         0,
         name="SnapRingSkirt",
     )
-    return _combine(comp, wedge, [skirt])
+    return _combine(comp, clamp, [skirt])
 
 
 def build_power_cylinder(comp, d):

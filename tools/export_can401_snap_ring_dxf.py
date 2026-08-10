@@ -2,7 +2,7 @@
 """Export Can401 engine snap ring profile to profiles/can401_snap_ring.dxf.
 
 Profile matches can401_engine_snap_ring_profile() in Can401_lib.scad
-(wedge pad at seated seal + lid-skirt can grip).
+(clamp face at z=0 for upside-down print, dual 45° bead, mouth hold-down shelf).
 """
 
 from __future__ import annotations
@@ -35,6 +35,8 @@ def parse_constants(scad_path: Path) -> dict[str, float]:
         "bead_below_seam",
         "bead_chamfer",
         "ring_wedge_compress",
+        "ring_bead_z_offset",
+        "ring_od_extra",
     )
     out: dict[str, float] = {}
     for name in names:
@@ -80,27 +82,26 @@ def engine_snap_ring_profile(
 
     plate_r = plate_od / 2
     clamp_ir = plate_r - clamp_overhang
-    seam_ri = (c["can_body_od"] - 2 * c["can_wall_t"]) / 2 + 0.35
-    wedge_r = seam_ri - wedge_compress
+    outer_r = lid_r + c.get("ring_od_extra", 0.0)
     z_mouth = plate_drop
     z_top = plate_drop + c["lid_skirt_h"]
-    z_bead0 = plate_drop + bead_z0
-    z_bead1 = plate_drop + bead_z1
-    z_chamfer = plate_drop + bead_z1 + chamfer_drop
+    z_off = c.get("ring_bead_z_offset", 0.0)
+    z_bead0 = plate_drop + bead_z0 + z_off
+    z_bead1 = plate_drop + bead_z1 + z_off
+    z_chamfer_hi = z_bead1 + chamfer_drop  # tip-side 45°
+    z_chamfer_lo = z_bead0 - chamfer_drop  # clamp-side 45° (printable from bed)
 
     return [
         (clamp_ir, 0.0),
-        (lid_r, 0.0),
-        (lid_r, z_top),
+        (outer_r, 0.0),
+        (outer_r, z_top),
         (lid_ir, z_top),
-        (lid_ir, z_chamfer),
+        (lid_ir, z_chamfer_hi),
         (bead_ir, z_bead1),
         (bead_ir, z_bead0),
-        (lid_ir, z_bead0),
+        (lid_ir, z_chamfer_lo),
         (lid_ir, z_mouth),
-        (wedge_r, z_mouth),
-        (plate_r, z_mouth),
-        (plate_r, 0.0),
+        (clamp_ir, z_mouth),  # hold-down shelf (on plate top after assembly flip)
     ]
 
 

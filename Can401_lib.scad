@@ -29,6 +29,8 @@ bead_chamfer = 45;        // deg; 45° lead-in on bottom edge of snap bead (pres
 
 /* [Engine snap ring — TPU; wedge seal + lid-skirt can grip] */
 ring_wedge_compress = 0.30; // mm radial squeeze of TPU pad into plate/rim gap at seal
+ring_bead_z_offset = 0.5; // [0:0.1:3] mm; +shifts bead toward skirt tip (down can after flip)
+ring_od_extra = 0.5; // [0:0.1:2] mm; added to outer radius (thicker sidewall for printing)
 
 /* [Hidden] */
 can_body_id = can_body_od - 2 * can_wall_t;
@@ -82,34 +84,36 @@ function can401_rim_inner_r(can_z) = let(
   : (can_z >= z_step) ? seam_ri
   : ri + (seam_ri - ri) * (can_z - z_rim) / (z_step - z_rim);
 
-// Engine TPU snap ring: wedge pad at seated seal (z=0..plate_drop) + lid-skirt can grip above.
-// Profile z=0 at plate bottom; plate_drop = axial inset of plate into can mouth.
+// Engine TPU snap ring: lid-skirt can grip + inward clamp shelf at the mouth.
+// Profile z=0 = clamp face (print bed when upside-down); mouth at plate_drop; skirt +z.
+// Snap bead has 45° chamfers on BOTH sides so it prints support-free with clamp on the bed.
+// LTDEngine Z-flips this for assembly so the mouth shelf lands on the cold-plate top.
 function can401_engine_snap_ring_profile(
-    plate_od, plate_drop, clamp_overhang, wedge_compress = ring_wedge_compress
+    plate_od, plate_drop, clamp_overhang,
+    wedge_compress = ring_wedge_compress,
+    bead_z_offset = ring_bead_z_offset,
+    od_extra = ring_od_extra
 ) = let(
     plate_r = plate_od / 2,
     clamp_ir = plate_r - clamp_overhang,
-    ri = can_body_id / 2,
-    seam_ri = ri + 0.35,
-    wedge_r = seam_ri - wedge_compress,
+    outer_r = lid_r + od_extra,                     // thicker outer wall for print strength
     z_mouth = plate_drop,
     z_top = plate_drop + lid_skirt_h,
-    z_bead0 = plate_drop + bead_z0,
-    z_bead1 = plate_drop + bead_z1,
-    z_chamfer = plate_drop + bead_z1 + chamfer_drop
+    z_bead0 = plate_drop + bead_z0 + bead_z_offset,
+    z_bead1 = plate_drop + bead_z1 + bead_z_offset,
+    z_chamfer_hi = z_bead1 + chamfer_drop,          // tip-side 45° (can insertion)
+    z_chamfer_lo = z_bead0 - chamfer_drop           // clamp-side 45° (printable from bed)
 ) [
     [clamp_ir, 0],
-    [lid_r, 0],
-    [lid_r, z_top],
+    [outer_r, 0],
+    [outer_r, z_top],
     [lid_ir, z_top],
-    [lid_ir, z_chamfer],
+    [lid_ir, z_chamfer_hi],
     [bead_ir, z_bead1],
     [bead_ir, z_bead0],
-    [lid_ir, z_bead0],
+    [lid_ir, z_chamfer_lo],
     [lid_ir, z_mouth],
-    [wedge_r, z_mouth],
-    [plate_r, z_mouth],
-    [plate_r, 0]
+    [clamp_ir, z_mouth]  // hold-down shelf (on plate top after assembly flip)
 ];
 
 // External wall profile [radius, z]: vertical body, short flange step, vertical seam, top curl.
@@ -164,11 +168,14 @@ module lid_skirt_profile() {
 }
 
 module can401_engine_snap_ring(
-    plate_od, plate_drop, clamp_overhang, wedge_compress = ring_wedge_compress
+    plate_od, plate_drop, clamp_overhang,
+    wedge_compress = ring_wedge_compress,
+    bead_z_offset = ring_bead_z_offset,
+    od_extra = ring_od_extra
 ) {
     rotate_extrude(convexity = 12)
         polygon(can401_engine_snap_ring_profile(
-            plate_od, plate_drop, clamp_overhang, wedge_compress));
+            plate_od, plate_drop, clamp_overhang, wedge_compress, bead_z_offset, od_extra));
 }
 
 module can401_snap_lid() {

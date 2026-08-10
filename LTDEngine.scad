@@ -25,6 +25,9 @@ right_support_x = 40;
 disp_link_len = 40;   // mm pin-to-pin; displacer link + slider-crank constraint
 power_stroke = 12;
 power_piston_h = 16;  // mm; pin at h/2; taller = deeper cup
+power_piston_wall_t = 1;       // mm; cup sidewall thickness (matches bore subtract in power_piston())
+power_piston_radial_clearance = 0.4; // mm/side; piston OD vs power-cylinder bore ID
+power_piston_clevis_x = 3;     // mm; fork boss center offset from piston axis (±)
 sv_ratio = 40.0;      // displacer:power swept-volume ratio
 /* [Hardware & Mounting] */
 pin_d = 1.5;          // silver linkage / clevis pins (mm)
@@ -55,11 +58,12 @@ displacer_radial_clearance = 1.5; // mm gap to can wall (each side)
 displacer_axial_clearance = 2;    // mm at top and bottom of stroke
 displacer_stroke_ratio = 0.55;    // stroke as fraction of usable bore depth
 /* [Cold side] */
-cold_plate_rim_clearance = 0.25; // mm radial gap; plate OD vs can mouth inner wall
-cold_plate_t = 6.35;     // mm aluminum plate thickness
-cold_plate_cup_depth = 0.05; // mm optional dish on plate top (inside wedge bore)
+cold_plate_rim_clearance = 0.08; // mm radial gap; plate OD vs can mouth inner wall
+cold_plate_t = 2.87;     // mm aluminum plate thickness
+cold_plate_cup_depth = 0; // mm optional dish on plate top (inside wedge bore)
 ring_clamp_overhang = 2.5;     // mm radial inset; wedge pad spans plate_r down to clamp_ir
 ring_wedge_compress = 0.30;    // mm TPU squeeze into rim at mouth (see Can401_lib)
+ring_z_offset = -4.7;          // mm; assembled Z nudge after flip (negative = toward can)
 /* [Thermodynamic analysis] */
 T_hot_C = 50;               // hot-side boundary temp (°C), e.g. warm water on hot can
 T_cold_C = 20;              // cold-side boundary temp (°C), e.g. room air at cold plate
@@ -69,7 +73,7 @@ schmidt_phase_deg = 90;     // displacer lead over power piston (matches crank g
 mechanical_efficiency = 0.65; // [0.3:0.95] fraction of indicated work reaching shaft
 dead_volume_scale = 1.0;    // scales geometry-derived clearance/dead volumes
 /* [Hidden] */
-$fn = 60;
+$fn = 255;
 section_half_size = 500; // Y-section clip volume (mm each axis from cut plane)
 power_piston_axial_clearance = 1; // mm each end of power piston travel in bore
 flange_od = 12; flange_t = 2.0;
@@ -128,7 +132,9 @@ power_swept_vol = displacer_swept_vol / sv_ratio;
 power_cyl_id = sqrt(power_swept_vol / (3.14159265 * 0.25 * power_stroke));
 power_cyl_od = power_cyl_id + 4;
 power_cyl_h = power_stroke + power_piston_h + 2 * power_piston_axial_clearance;
-power_piston_od = power_cyl_id - 0.15;
+power_piston_od = power_cyl_id - 2 * power_piston_radial_clearance;
+power_piston_cup_id = power_piston_od - 2 * power_piston_wall_t;
+power_piston_pin_len = 2 * (power_piston_clevis_x + clevis_tab_x / 2); // outer fork faces
 power_piston_clevis_boss_h = 6; // fixed fork height at pin (original h=8 design)
 displacer_crank_r = displacer_stroke / 2; power_crank_r = power_stroke / 2;
 disp_can_top_z = can_top_z - displacer_axial_clearance;
@@ -382,20 +388,24 @@ module support_frame() {
     }
 }
 // Fork tab: square shank, +Z crown rounded to link_disc_d (matches link_end_disc arc)
-module clevis_boss_round_top(x, z, tab_h, tab_x = 2) {
+// Optional floor_z: extend shank down to cup floor instead of tab_h/2 below z.
+module clevis_boss_round_top(x, z, tab_h, tab_x = 2, floor_z) {
     tab_y = link_disc_d;
     top_r = min(tab_y / 2, tab_h / 2);
-    body_h = tab_h - top_r;
+    crown_w = 2 * top_r;
     z_top = z + tab_h / 2;
-    z_bottom = z - tab_h / 2;
+    body_top = z_top - top_r;
+    z_bottom = is_undef(floor_z) ? z - tab_h / 2 : floor_z;
+    body_h = body_top - z_bottom;
     union() {
-        translate([x, 0, z_bottom + body_h / 2])
-            cube([tab_x, tab_y, body_h], center=true);
+        if (body_h > 0)
+            translate([x, 0, z_bottom + body_h / 2])
+                cube([tab_x, crown_w, body_h], center=true);
         intersection() {
             translate([x, 0, z_top - top_r])
-                rotate([0, 90, 0]) cylinder(d=2 * top_r, h=tab_x, center=true);
+                rotate([0, 90, 0]) cylinder(d=crown_w, h=tab_x, center=true);
             translate([x, 0, z_top - top_r / 2])
-                cube([tab_x, tab_y + 0.1, top_r], center=true);
+                cube([tab_x, crown_w + 0.1, top_r], center=true);
         }
     }
 }
@@ -490,22 +500,29 @@ module displacer() { color("LightBlue") cylinder(d=displacer_d, h=displacer_h, c
 module power_piston(pin_d=pin_d) {
     pin_z = power_piston_h / 2;
     boss_h = power_piston_clevis_boss_h;
+    cup_floor_z = 1.5;
+    cup_h = power_piston_h - cup_floor_z;
     color("DimGrey") difference() {
-        union() {
-            difference() {
-                cylinder(d=power_piston_od, h=power_piston_h, center=false);
-                translate([0, 0, 1.5]) cylinder(d=power_piston_od - 2, h=power_piston_h, center=false);
-            }
-            intersection() {
-                translate([0, 0, 1.5]) cylinder(d=power_piston_od - 2.2, h=power_piston_h - 1.5, center=false);
-                union() {
-                    clevis_boss_round_top(-3, pin_z, boss_h);
-                    clevis_boss_round_top(3, pin_z, boss_h);
+        intersection() {
+            union() {
+                difference() {
+                    cylinder(d=power_piston_od, h=power_piston_h, center=false);
+                    translate([0, 0, cup_floor_z])
+                        cylinder(d=power_piston_cup_id, h=cup_h + 0.01, center=false);
+                }
+                intersection() {
+                    translate([0, 0, cup_floor_z])
+                        cylinder(d=power_piston_cup_id, h=cup_h + 0.01, center=false);
+                    union() {
+                        clevis_boss_round_top(-power_piston_clevis_x, pin_z, boss_h, floor_z=cup_floor_z);
+                        clevis_boss_round_top(power_piston_clevis_x, pin_z, boss_h, floor_z=cup_floor_z);
+                    }
                 }
             }
+            cylinder(d=power_piston_od, h=power_piston_h + 0.01, center=false);
         }
         translate([0, 0, pin_z]) rotate([0, 90, 0])
-            cylinder(d=pin_d, h=power_piston_od + 2, center=true);
+            cylinder(d=pin_d, h=power_piston_pin_len + 0.5, center=true);
     }
 }
 module power_cylinder() {
@@ -536,11 +553,13 @@ module brass_tube_seal() {
         translate([0, 0, -1]) cylinder(h=seal_h + 2, d=seal_id, center=false);
     }
 }
-// TPU snap ring: wedge pad at seated rim seal + lid-skirt grip (plate-local z, no flip)
+// TPU snap ring: wedge pad + lid-skirt grip; Z-flipped 180° for assembly
 module can_snap_ring() {
     color("Teal")
-        can401_engine_snap_ring(
-            cold_plate_od, cold_plate_drop, ring_clamp_overhang, ring_wedge_compress);
+        translate([0, 0, snap_ring_t])
+        mirror([0, 0, 1])
+            can401_engine_snap_ring(
+                cold_plate_od, cold_plate_drop, ring_clamp_overhang, ring_wedge_compress);
 }
 module flywheel_geom() {
     collar_z = flywheel_w / 2 + flywheel_collar_h / 2;
@@ -642,7 +661,7 @@ translate([right_support_x, parts_y_axis, cold_plate_top_z]) mirror([1, 0, 0]) s
 translate([0, parts_y_axis, cold_plate_bottom_z]) {
 cold_plate();
 translate([0, 0, -1]) brass_tube_seal(); // press-fit bore; bottom aligned with plate cut
-translate([0, 0, ring_ez]) can_snap_ring();
+translate([0, 0, ring_ez + ring_z_offset]) can_snap_ring();
 translate([power_piston_x, parts_y_axis, cold_plate_t]) power_cylinder();
 }
 }
@@ -652,7 +671,7 @@ translate([0, 0, -ez * 2]) {
 translate([power_piston_x, parts_y_axis, power_piston_base_z]) {
 power_piston();
 translate([0, 0, power_piston_h / 2]) rotate([0, 90, 0])
-color("Silver") cylinder(d=pin_d, h=power_piston_od + 1, center=true);
+color("Silver") cylinder(d=pin_d, h=power_piston_pin_len, center=true);
 }
 // DISPLACER ASSEMBLY WITH INTEGRATED CLEVIS HARDWARE
 translate([0, parts_y_axis, 0]) {

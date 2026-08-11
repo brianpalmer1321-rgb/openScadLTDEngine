@@ -36,7 +36,10 @@ def parse_constants(scad_path: Path) -> dict[str, float]:
         "bead_chamfer",
         "ring_wedge_compress",
         "ring_bead_z_offset",
+        "ring_bead_z_base",
         "ring_od_extra",
+        "ring_od_extra_base",
+        "ring_diameter_adjust",
     )
     out: dict[str, float] = {}
     for name in names:
@@ -78,29 +81,37 @@ def engine_snap_ring_profile(
     bead_z = c["can_rim_h"] + c["bead_h"] / 2 + c["bead_below_seam"]
     bead_z0 = bead_z - c["bead_h"] / 2
     bead_z1 = bead_z0 + c["bead_h"]
-    chamfer_drop = (lid_ir - bead_ir) * math.tan(math.radians(c["bead_chamfer"]))
 
     plate_r = plate_od / 2
     clamp_ir = plate_r - clamp_overhang
-    outer_r = lid_r + c.get("ring_od_extra", 0.0)
+    dia_adj = c.get("ring_diameter_adjust", 0.0)
+    skirt_ir = lid_ir + dia_adj / 2
+    snap_ir = bead_ir + dia_adj / 2
+    outer_r = (
+        lid_r
+        + c.get("ring_od_extra_base", 0.0)
+        + c.get("ring_od_extra", 0.0)
+        + dia_adj / 2
+    )
+    chamfer_dz = (skirt_ir - snap_ir) * math.tan(math.radians(c["bead_chamfer"]))
     z_mouth = plate_drop
     z_top = plate_drop + c["lid_skirt_h"]
-    z_off = c.get("ring_bead_z_offset", 0.0)
+    z_off = c.get("ring_bead_z_base", 0.0) + c.get("ring_bead_z_offset", 0.0)
     z_bead0 = plate_drop + bead_z0 + z_off
     z_bead1 = plate_drop + bead_z1 + z_off
-    z_chamfer_hi = z_bead1 + chamfer_drop  # tip-side 45°
-    z_chamfer_lo = z_bead0 - chamfer_drop  # clamp-side 45° (printable from bed)
+    z_chamfer_hi = z_bead1 + chamfer_dz  # tip-side 45°
+    z_chamfer_lo = z_bead0 - chamfer_dz  # clamp-side 45° (printable from bed)
 
     return [
         (clamp_ir, 0.0),
         (outer_r, 0.0),
         (outer_r, z_top),
-        (lid_ir, z_top),
-        (lid_ir, z_chamfer_hi),
-        (bead_ir, z_bead1),
-        (bead_ir, z_bead0),
-        (lid_ir, z_chamfer_lo),
-        (lid_ir, z_mouth),
+        (skirt_ir, z_top),
+        (skirt_ir, z_chamfer_hi),
+        (snap_ir, z_bead1),
+        (snap_ir, z_bead0),
+        (skirt_ir, z_chamfer_lo),
+        (skirt_ir, z_mouth),
         (clamp_ir, z_mouth),  # hold-down shelf (on plate top after assembly flip)
     ]
 

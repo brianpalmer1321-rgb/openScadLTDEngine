@@ -29,8 +29,9 @@ bead_chamfer = 45;        // deg; 45° lead-in on bottom edge of snap bead (pres
 
 /* [Engine snap ring — TPU; wedge seal + lid-skirt can grip] */
 ring_wedge_compress = 0.30; // mm radial squeeze of TPU pad into plate/rim gap at seal
-ring_bead_z_offset = 0.5; // [0:0.1:3] mm; +shifts bead toward skirt tip (down can after flip)
-ring_od_extra = 0.5; // [0:0.1:2] mm; added to outer radius (thicker sidewall for printing)
+ring_bead_z_offset = 0; // [0:0.1:3] mm delta from tuned bead seat (positive = down can after flip)
+ring_od_extra = 0; // [0:0.1:2] mm delta from tuned outer wall thickness
+ring_diameter_adjust = 0.4; // [-1:0.1:2] mm added to bead/skirt ID (positive = looser snap-over)
 
 /* [Hidden] */
 can_body_id = can_body_od - 2 * can_wall_t;
@@ -38,6 +39,8 @@ can_rim_id = can_rim_od - 2 * can_wall_t;
 lid_r = lid_od / 2;
 lid_ir = lid_id / 2;
 bead_ir = bead_id / 2;
+ring_bead_z_base = 0.5;   // tuned bead seat baked in; Customizer offset is delta
+ring_od_extra_base = 0.5; // tuned outer wall bake-in (+0.5 mm radius)
 bead_z = can_rim_h + bead_h / 2 + bead_below_seam; // center in seam; bottom at seam base when offset=0
 bead_z0 = bead_z - bead_h / 2;
 bead_z1 = bead_z0 + bead_h;
@@ -92,27 +95,32 @@ function can401_engine_snap_ring_profile(
     plate_od, plate_drop, clamp_overhang,
     wedge_compress = ring_wedge_compress,
     bead_z_offset = ring_bead_z_offset,
-    od_extra = ring_od_extra
+    od_extra = ring_od_extra,
+    diameter_adjust = ring_diameter_adjust
 ) = let(
     plate_r = plate_od / 2,
     clamp_ir = plate_r - clamp_overhang,
-    outer_r = lid_r + od_extra,                     // thicker outer wall for print strength
+    // Grow snap-over IDs by diameter_adjust; keep outer wall thickness (+ radial half)
+    skirt_ir = lid_ir + diameter_adjust / 2,
+    snap_ir = bead_ir + diameter_adjust / 2,
+    outer_r = lid_r + ring_od_extra_base + od_extra + diameter_adjust / 2,
+    chamfer_dz = (skirt_ir - snap_ir) * tan(bead_chamfer),
     z_mouth = plate_drop,
     z_top = plate_drop + lid_skirt_h,
-    z_bead0 = plate_drop + bead_z0 + bead_z_offset,
-    z_bead1 = plate_drop + bead_z1 + bead_z_offset,
-    z_chamfer_hi = z_bead1 + chamfer_drop,          // tip-side 45° (can insertion)
-    z_chamfer_lo = z_bead0 - chamfer_drop           // clamp-side 45° (printable from bed)
+    z_bead0 = plate_drop + bead_z0 + ring_bead_z_base + bead_z_offset,
+    z_bead1 = plate_drop + bead_z1 + ring_bead_z_base + bead_z_offset,
+    z_chamfer_hi = z_bead1 + chamfer_dz,            // tip-side 45° (can insertion)
+    z_chamfer_lo = z_bead0 - chamfer_dz             // clamp-side 45° (printable from bed)
 ) [
     [clamp_ir, 0],
     [outer_r, 0],
     [outer_r, z_top],
-    [lid_ir, z_top],
-    [lid_ir, z_chamfer_hi],
-    [bead_ir, z_bead1],
-    [bead_ir, z_bead0],
-    [lid_ir, z_chamfer_lo],
-    [lid_ir, z_mouth],
+    [skirt_ir, z_top],
+    [skirt_ir, z_chamfer_hi],
+    [snap_ir, z_bead1],
+    [snap_ir, z_bead0],
+    [skirt_ir, z_chamfer_lo],
+    [skirt_ir, z_mouth],
     [clamp_ir, z_mouth]  // hold-down shelf (on plate top after assembly flip)
 ];
 
@@ -171,11 +179,13 @@ module can401_engine_snap_ring(
     plate_od, plate_drop, clamp_overhang,
     wedge_compress = ring_wedge_compress,
     bead_z_offset = ring_bead_z_offset,
-    od_extra = ring_od_extra
+    od_extra = ring_od_extra,
+    diameter_adjust = ring_diameter_adjust
 ) {
     rotate_extrude(convexity = 12)
         polygon(can401_engine_snap_ring_profile(
-            plate_od, plate_drop, clamp_overhang, wedge_compress, bead_z_offset, od_extra));
+            plate_od, plate_drop, clamp_overhang, wedge_compress,
+            bead_z_offset, od_extra, diameter_adjust));
 }
 
 module can401_snap_lid() {

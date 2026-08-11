@@ -92,9 +92,13 @@ COLD_PLATE_T = 2.87
 COLD_PLATE_CUP_DEPTH = 0.0
 RING_CLAMP_OVERHANG = 3.0  # mm lip inward over cold-plate top
 RING_WEDGE_COMPRESS = 0.30
-RING_BEAD_Z_OFFSET = 0.5  # mm; +shifts snap bead down the can after assembly flip
-RING_OD_EXTRA = 0.5  # mm; added to outer radius (thicker sidewall for printing)
-RING_Z_OFFSET = -4.8  # mm; assembled Z nudge after flip (negative = toward can)
+RING_BEAD_Z_BASE = 0.5  # tuned bead seat; RING_BEAD_Z_OFFSET is Customizer delta
+RING_BEAD_Z_OFFSET = 0.0
+RING_OD_EXTRA_BASE = 0.5  # tuned outer wall; RING_OD_EXTRA is Customizer delta
+RING_OD_EXTRA = 0.0
+RING_DIAMETER_ADJUST = 0.4  # mm added to bead/skirt ID (positive = looser snap-over)
+RING_Z_BASE = -4.8  # tuned assembled Z; RING_Z_OFFSET is Customizer delta
+RING_Z_OFFSET = 0.0
 
 # Hidden / fixed
 PARTS_Y_AXIS = 0.0
@@ -351,43 +355,53 @@ def _can401_rim_wall_profile():
 
 
 def _can401_snap_ring_profile(plate_od, plate_drop, clamp_overhang, wedge_compress=None,
-                              bead_z_offset=None, od_extra=None):
+                              bead_z_offset=None, od_extra=None, diameter_adjust=None):
     """Full profile: clamp on z=0 (print bed), dual 45° bead, shelf at mouth."""
     if bead_z_offset is None:
         bead_z_offset = RING_BEAD_Z_OFFSET
     if od_extra is None:
         od_extra = RING_OD_EXTRA
+    if diameter_adjust is None:
+        diameter_adjust = RING_DIAMETER_ADJUST
     plate_r = plate_od / 2
     clamp_ir = plate_r - clamp_overhang
-    outer_r = LID_OD / 2 + od_extra
+    skirt_ir = LID_ID / 2 + diameter_adjust / 2
+    snap_ir = BEAD_ID / 2 + diameter_adjust / 2
+    outer_r = LID_OD / 2 + RING_OD_EXTRA_BASE + od_extra + diameter_adjust / 2
     z_mouth = plate_drop
     z_top = plate_drop + LID_SKIRT_H
-    bead_z0 = plate_drop + (CAN_RIM_H + BEAD_H / 2 + BEAD_BELOW_SEAM - BEAD_H / 2) + bead_z_offset
+    bead_z0 = (
+        plate_drop + (CAN_RIM_H + BEAD_H / 2 + BEAD_BELOW_SEAM - BEAD_H / 2)
+        + RING_BEAD_Z_BASE + bead_z_offset
+    )
     bead_z1 = bead_z0 + BEAD_H
-    chamfer_drop = (LID_ID / 2 - BEAD_ID / 2) * math.tan(math.radians(BEAD_CHAMFER))
-    z_chamfer_hi = bead_z1 + chamfer_drop
-    z_chamfer_lo = bead_z0 - chamfer_drop
+    chamfer_dz = (skirt_ir - snap_ir) * math.tan(math.radians(BEAD_CHAMFER))
+    z_chamfer_hi = bead_z1 + chamfer_dz
+    z_chamfer_lo = bead_z0 - chamfer_dz
     return [
         (clamp_ir, 0),
         (outer_r, 0),
         (outer_r, z_top),
-        (LID_ID / 2, z_top),
-        (LID_ID / 2, z_chamfer_hi),
-        (BEAD_ID / 2, bead_z1),
-        (BEAD_ID / 2, bead_z0),
-        (LID_ID / 2, z_chamfer_lo),
-        (LID_ID / 2, z_mouth),
+        (skirt_ir, z_top),
+        (skirt_ir, z_chamfer_hi),
+        (snap_ir, bead_z1),
+        (snap_ir, bead_z0),
+        (skirt_ir, z_chamfer_lo),
+        (skirt_ir, z_mouth),
         (clamp_ir, z_mouth),
     ]
 
 
-def _can401_snap_ring_clamp_profile(plate_od, plate_drop, clamp_overhang, od_extra=None):
+def _can401_snap_ring_clamp_profile(plate_od, plate_drop, clamp_overhang, od_extra=None,
+                                    diameter_adjust=None):
     """Clamp body: face at z=0 (print bed) through mouth shelf."""
     if od_extra is None:
         od_extra = RING_OD_EXTRA
+    if diameter_adjust is None:
+        diameter_adjust = RING_DIAMETER_ADJUST
     plate_r = plate_od / 2
     clamp_ir = plate_r - clamp_overhang
-    outer_r = LID_OD / 2 + od_extra
+    outer_r = LID_OD / 2 + RING_OD_EXTRA_BASE + od_extra + diameter_adjust / 2
     z_mouth = plate_drop
     return [
         (clamp_ir, 0),
@@ -397,27 +411,35 @@ def _can401_snap_ring_clamp_profile(plate_od, plate_drop, clamp_overhang, od_ext
     ]
 
 
-def _can401_snap_ring_skirt_profile(plate_od, plate_drop, bead_z_offset=None, od_extra=None):
+def _can401_snap_ring_skirt_profile(plate_od, plate_drop, bead_z_offset=None, od_extra=None,
+                                    diameter_adjust=None):
     """Skirt above mouth; dual 45° bead for support-free upside-down printing."""
     if bead_z_offset is None:
         bead_z_offset = RING_BEAD_Z_OFFSET
     if od_extra is None:
         od_extra = RING_OD_EXTRA
-    outer_r = LID_OD / 2 + od_extra
+    if diameter_adjust is None:
+        diameter_adjust = RING_DIAMETER_ADJUST
+    skirt_ir = LID_ID / 2 + diameter_adjust / 2
+    snap_ir = BEAD_ID / 2 + diameter_adjust / 2
+    outer_r = LID_OD / 2 + RING_OD_EXTRA_BASE + od_extra + diameter_adjust / 2
     z_mouth = plate_drop
     z_top = plate_drop + LID_SKIRT_H
-    bead_z0 = plate_drop + (CAN_RIM_H + BEAD_H / 2 + BEAD_BELOW_SEAM - BEAD_H / 2) + bead_z_offset
+    bead_z0 = (
+        plate_drop + (CAN_RIM_H + BEAD_H / 2 + BEAD_BELOW_SEAM - BEAD_H / 2)
+        + RING_BEAD_Z_BASE + bead_z_offset
+    )
     bead_z1 = bead_z0 + BEAD_H
-    chamfer_drop = (LID_ID / 2 - BEAD_ID / 2) * math.tan(math.radians(BEAD_CHAMFER))
-    z_chamfer_hi = bead_z1 + chamfer_drop
-    z_chamfer_lo = bead_z0 - chamfer_drop
+    chamfer_dz = (skirt_ir - snap_ir) * math.tan(math.radians(BEAD_CHAMFER))
+    z_chamfer_hi = bead_z1 + chamfer_dz
+    z_chamfer_lo = bead_z0 - chamfer_dz
     return [
-        (LID_ID / 2, z_mouth),
-        (LID_ID / 2, z_chamfer_lo),
-        (BEAD_ID / 2, bead_z0),
-        (BEAD_ID / 2, bead_z1),
-        (LID_ID / 2, z_chamfer_hi),
-        (LID_ID / 2, z_top),
+        (skirt_ir, z_mouth),
+        (skirt_ir, z_chamfer_lo),
+        (snap_ir, bead_z0),
+        (snap_ir, bead_z1),
+        (skirt_ir, z_chamfer_hi),
+        (skirt_ir, z_top),
         (outer_r, z_top),
         (outer_r, z_mouth),
     ]
@@ -1071,7 +1093,9 @@ def build_assembled(root, d, k, ez, use_sub):
             plate_bg.group(
                 "SnapRing",
                 _chain_transforms(
-                    _matrix_translate(0, 0, ring_ez(ez) + RING_Z_OFFSET + d.snap_ring_t),
+                    _matrix_translate(
+                        0, 0, ring_ez(ez) + RING_Z_BASE + RING_Z_OFFSET + d.snap_ring_t
+                    ),
                     _matrix_mirror_z(),
                 ),
                 lambda s: build_snap_ring(s.comp(), d),

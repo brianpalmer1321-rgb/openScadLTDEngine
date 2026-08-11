@@ -63,9 +63,10 @@ cold_plate_t = 2.87;     // mm aluminum plate thickness
 cold_plate_cup_depth = 0; // mm optional dish on plate top (inside wedge bore)
 ring_clamp_overhang = 3; // [0:0.1:10] mm lip inward over cold-plate top
 ring_wedge_compress = 0.30;    // mm TPU squeeze into rim at mouth (see Can401_lib)
-ring_bead_z_offset = 0.5; // [0:0.1:3] mm; +shifts snap bead down the can (less rim intersection)
-ring_od_extra = 0.5; // [0:0.1:2] mm; added to outer radius (thicker sidewall for printing)
-ring_z_offset = -4.8; // [-10:0.1:0] mm; assembled Z nudge after flip (negative = toward can)
+ring_bead_z_offset = 0; // [0:0.1:3] mm delta from tuned bead seat (positive = down can)
+ring_od_extra = 0; // [0:0.1:2] mm delta from tuned outer wall thickness
+ring_diameter_adjust = 0.4; // [-1:0.1:2] mm added to bead/skirt ID (positive = looser snap-over)
+ring_z_offset = 0; // [-5:0.1:5] mm delta from tuned assembly Z (negative = toward can)
 /* [Thermodynamic analysis] */
 T_hot_C = 50;               // hot-side boundary temp (°C), e.g. warm water on hot can
 T_cold_C = 20;              // cold-side boundary temp (°C), e.g. room air at cold plate
@@ -76,6 +77,7 @@ mechanical_efficiency = 0.65; // [0.3:0.95] fraction of indicated work reaching 
 dead_volume_scale = 1.0;    // scales geometry-derived clearance/dead volumes
 /* [Hidden] */
 $fn = 255;
+ring_z_base = -4.8; // tuned assembled Z; Customizer ring_z_offset is delta from this
 section_half_size = 500; // Y-section clip volume (mm each axis from cut plane)
 power_piston_axial_clearance = 1; // mm each end of power piston travel in bore
 flange_od = 12; flange_t = 2.0;
@@ -111,7 +113,7 @@ cold_plate_bottom_z = cold_plate_top_z - cold_plate_t;
 can_top_z = cold_plate_bottom_z + cold_plate_drop;         // 401 rim seat preserved
 snap_ring_profile = can401_engine_snap_ring_profile(
     cold_plate_od, cold_plate_drop, ring_clamp_overhang,
-    ring_wedge_compress, ring_bead_z_offset, ring_od_extra);
+    ring_wedge_compress, ring_bead_z_offset, ring_od_extra, ring_diameter_adjust);
 snap_ring_t = profile_max_z(snap_ring_profile);
 
 // ==========================================
@@ -561,7 +563,7 @@ module can_snap_ring_geom() {
     color("Teal")
         can401_engine_snap_ring(
             cold_plate_od, cold_plate_drop, ring_clamp_overhang,
-            ring_wedge_compress, ring_bead_z_offset, ring_od_extra);
+            ring_wedge_compress, ring_bead_z_offset, ring_od_extra, ring_diameter_adjust);
 }
 // Assembled orientation: Z-flipped so skirt hangs over can rim
 module can_snap_ring() {
@@ -669,7 +671,7 @@ translate([right_support_x, parts_y_axis, cold_plate_top_z]) mirror([1, 0, 0]) s
 translate([0, parts_y_axis, cold_plate_bottom_z]) {
 cold_plate();
 translate([0, 0, -1]) brass_tube_seal(); // press-fit bore; bottom aligned with plate cut
-translate([0, 0, ring_ez + ring_z_offset]) can_snap_ring();
+translate([0, 0, ring_ez + ring_z_base + ring_z_offset]) can_snap_ring();
 translate([power_piston_x, parts_y_axis, cold_plate_t]) power_cylinder();
 }
 }

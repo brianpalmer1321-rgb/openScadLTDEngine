@@ -2,7 +2,7 @@
 // Customizer Panel Settings
 /* [Rendering Options] */
 mode = "Assembled"; // [Individual, Assembled, Exploded]
-export_part = "All on plate"; // [All on plate, Snap ring, Cold plate ref, Power cylinder, Power piston, Link discs x4, Support frame, Flywheel, Displacer crank arm, Power crank arm, Rod flange, Stiffener tubes x4]
+export_part = "All on plate"; // [All on plate, Snap ring, Cold plate ref, Power cylinder, Power piston, Displacer, Link discs x4, Support frame, Flywheel, Displacer crank arm, Power crank arm, Rod flange, Stiffener tubes x4]
 show_y_section = false; // vertical cut at section_y_offset; keeps y >= offset (+Y half)
 section_y_offset = 0; // mm; 0 = engine center plane (XZ)
 /* [Kinematics & Animation] */
@@ -91,6 +91,7 @@ frame_foot_y = (frame_w - frame_foot_pad_w) / 2; // ±Y center of each end foot
 ind_x_snap_ring = -170;
 ind_x_cold = -65; ind_y_row1 = -35; ind_x_pwr_cyl = 65;
 ind_x_pwr_piston = 15; ind_y_row2 = 40;
+ind_x_displacer = -10; ind_y_displacer = 115;
 ind_x_link_discs = 90; ind_y_link_discs = -85; ind_link_disc_pitch = 12;
 ind_x_frame = -65; ind_y_frame = 55;
 ind_x_flywheel = 120; ind_y_flywheel = 90;
@@ -501,7 +502,13 @@ module rod_flange(pin_d=pin_d) {
             cylinder(d=pin_d, h=clevis_pin_len, center=true); // Pin along X, flush with tab outer faces
     }
 }
-module displacer() { color("LightBlue") cylinder(d=displacer_d, h=displacer_h, center=true); }
+module displacer() {
+    color("LightBlue") difference() {
+        cylinder(d=displacer_d, h=displacer_h, center=true);
+        // Friction-fit bore for steel displacer shaft
+        cylinder(d=rod_od, h=displacer_h + 2, center=true);
+    }
+}
 module power_piston(pin_d=pin_d) {
     pin_z = power_piston_h / 2;
     boss_h = power_piston_clevis_boss_h;
@@ -707,6 +714,10 @@ if (export_show("Power cylinder"))
     translate(ind_on_plate ? [ind_x_pwr_cyl, ind_y_row1, 0] : [0, 0, 0]) power_cylinder();
 if (export_show("Power piston"))
     translate(ind_on_plate ? [ind_x_pwr_piston, ind_y_row2, 0] : [0, 0, 0]) power_piston();
+if (export_show("Displacer"))
+    // Flat on bed: assembly module is centered, so lift by h/2
+    translate(ind_on_plate ? [ind_x_displacer, ind_y_displacer, displacer_h / 2] : [0, 0, displacer_h / 2])
+        displacer();
 if (export_show("Link discs x4")) {
     link_ox = ind_on_plate ? ind_x_link_discs : -ind_link_disc_pitch / 2;
     link_oy = ind_on_plate ? ind_y_link_discs : -ind_link_disc_pitch / 2;

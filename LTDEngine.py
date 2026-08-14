@@ -797,9 +797,14 @@ def build_power_cylinder(comp, d):
 
 
 def build_displacer(comp, d):
-    return _extrude_circle_z(
+    body = _extrude_circle_z(
         comp, 0, 0, -d.displacer_h / 2, d.displacer_d, d.displacer_h, name="Displacer",
     )
+    _extrude_circle_z(
+        comp, 0, 0, -d.displacer_h / 2 - 1, ROD_OD, d.displacer_h + 2,
+        adsk.fusion.FeatureOperations.CutFeatureOperation, body,
+    )
+    return body
 
 
 def build_power_piston(comp, d):
